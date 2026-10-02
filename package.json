@@ -1,0 +1,36 @@
+{
+  "name": "malt-ai-api",
+  "version": "1.0.0",
+  "description": "A lightweight, high-performance Node.js service that powers clinical medication alternative discovery. Built on Google Gemini 2.5, it processes patient prescriptions, known allergies, and case context to deliver structured, evidence-based medication alternatives in real time.",
+  "main": "index.js",
+  "type": "module",
+"scripts": {
+  "dev": "tsx watch src/index.ts",
+  "build": "tsc",
+  "start": "node dist/index.js"
+},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LeviApp/malt-ai-api.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/LeviApp/malt-ai-api/issues"
+  },
+  "homepage": "https://github.com/LeviApp/malt-ai-api#readme",
+  "dependencies": {
+    "@google/genai": "^2.26.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
