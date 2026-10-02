@@ -1,116 +1,220 @@
-import express, { type Request, type Response } from 'express';
+import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import { GoogleGenAI, Type, type Schema } from '@google/genai';
-
-dotenv.config();
-
-if (!process.env.GEMINI_API_KEY) {
-  console.error("❌ ERROR: GEMINI_API_KEY is missing from environment variables.");
-  process.exit(1);
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+import { GoogleGenAI, Type } from '@google/genai';
 
 const app = express();
-const port = process.env.PORT || 5000;
-
 app.use(cors());
 app.use(express.json());
 
-interface PatientContextPayload {
-  medications: string;
-  allergies?: string;
-  contextDetails?: string;
-}
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' });
 
-// Define Structured Output Schema for Clinical Response
-const alternativeResponseSchema: Schema = {
-  type: Type.OBJECT,
-  properties: {
-    suggestedAlternatives: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          drugName: { type: Type.STRING },
-          drugClass: { type: Type.STRING },
-          clinicalRationale: { type: Type.STRING },
-          safetyConsiderations: { type: Type.STRING },
+// Define strict Gemini Response Schema
+const analysisResponseSchema = {
+    type: Type.OBJECT,
+    properties: {
+        isValidInput: { type: Type.BOOLEAN },
+        meta: {
+            type: Type.OBJECT,
+            properties: {
+                timestamp: { type: Type.STRING },
+                model: { type: Type.STRING },
+            },
+            required: ['timestamp', 'model'],
         },
-        required: ['drugName', 'drugClass', 'clinicalRationale', 'safetyConsiderations'],
-      },
+        medicationAnalyses: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    targetDrug: { type: Type.STRING },
+                    reasonForSwitch: { type: Type.STRING }, // 👈 Added explicit property
+                    medicationsToAvoid: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                drugOrClass: { type: Type.STRING },
+                                severity: { type: Type.STRING },
+                                reasonToAvoid: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        clinical: { type: Type.STRING },
+                                        patientFriendly: { type: Type.STRING },
+                                    },
+                                    required: ['clinical', 'patientFriendly'],
+                                },
+                            },
+                            required: ['drugOrClass', 'severity', 'reasonToAvoid'],
+                        },
+                    },
+                    primaryAlternatives: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                drugName: { type: Type.STRING },
+                                drugClass: { type: Type.STRING },
+                                whyItIsTheBestAlternative: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        clinical: { type: Type.STRING },
+                                        patientFriendly: { type: Type.STRING },
+                                    },
+                                    required: ['clinical', 'patientFriendly'],
+                                },
+                                safetyConsiderations: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        clinical: { type: Type.STRING },
+                                        patientFriendly: { type: Type.STRING },
+                                    },
+                                    required: ['clinical', 'patientFriendly'],
+                                },
+                            },
+                            required: [
+                                'drugName',
+                                'drugClass',
+                                'whyItIsTheBestAlternative',
+                                'safetyConsiderations',
+                            ],
+                        },
+                    },
+                    secondaryAlternatives: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                drugName: { type: Type.STRING },
+                                drugClass: { type: Type.STRING },
+                                whyItIsTheBestAlternative: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        clinical: { type: Type.STRING },
+                                        patientFriendly: { type: Type.STRING },
+                                    },
+                                    required: ['clinical', 'patientFriendly'],
+                                },
+                                safetyConsiderations: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        clinical: { type: Type.STRING },
+                                        patientFriendly: { type: Type.STRING },
+                                    },
+                                    required: ['clinical', 'patientFriendly'],
+                                },
+                            },
+                            required: [
+                                'drugName',
+                                'drugClass',
+                                'whyItIsTheBestAlternative',
+                                'safetyConsiderations',
+                            ],
+                        },
+                    },
+                },
+                required: [
+                    'targetDrug',
+                    'medicationsToAvoid',
+                    'primaryAlternatives',
+                ],
+            },
+        },
+        regimenInteractionNotes: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    clinical: { type: Type.STRING },
+                    patientFriendly: { type: Type.STRING },
+                },
+                required: ['clinical', 'patientFriendly'],
+            },
+        },
     },
-    primaryWarnings: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-    },
-    monitoringParameters: {
-      type: Type.STRING,
-    },
-  },
-  required: ['suggestedAlternatives', 'primaryWarnings', 'monitoringParameters'],
+    required: ['isValidInput', 'meta', 'medicationAnalyses', 'regimenInteractionNotes'],
 };
 
-// Landing endpoint
-app.get('', (req: Request, res: Response) => {
-  res.json({ status: 'ok', message: 'malt-ai-api up and running!' });
-});
+app.post('/api/analyze', async (req, res) => {
+    try {
+        const { medications, allergies, caseDetails } = req.body;
 
-// Healthcheck endpoint
-app.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', service: 'malt-ai-api health check!' });
-});
+        // Guard against missing, empty, or whitespace-only inputs
+        if (!medications || typeof medications !== 'string' || medications.trim().length < 2) {
+            return res.status(400).json({
+                error: 'Invalid input: At least one medication name is required.',
+            });
+        }
 
-// Main Clinical Analysis Endpoint
-app.post('/api/analyze', async (req: Request<{}, {}, PatientContextPayload>, res: Response) => {
-  try {
-    const { medications, allergies, contextDetails } = req.body;
+        const systemInstruction = `You are Malt AI, an advanced clinical decision support tool for medication alternatives and pharmacology analysis.
 
-    if (!medications || !medications.trim()) {
-      return res.status(400).json({ error: 'Medications field is required.' });
+CRITICAL INSTRUCTIONS:
+1. INPUT VALIDATION & NON-MEDICAL DATA GUARD:
+   - Carefully evaluate the user's input ('medications', 'allergies', 'caseDetails').
+   - If the input consists of conversational chit-chat, random gibberish, non-medical topics, or does not contain recognizable medications or clinical scenarios, set 'isValidInput' to false.
+   - When 'isValidInput' is false, leave 'medicationAnalyses' as an empty array and provide a polite, dual-language explanation under 'regimenInteractionNotes':
+     * 'clinical': "Input non-actionable. Please provide valid pharmacological or clinical case data for analysis."
+     * 'patientFriendly': "I can only analyze medical data and medication regimens. Please enter valid medications to try again."
+
+2. FOR VALID MEDICAL INPUTS (Set 'isValidInput' to true):
+   - Parse 'medications' into individual target drugs and create a block under 'medicationAnalyses' for EACH listed drug.
+   - For each target drug, provide 'medicationsToAvoid', 'primaryAlternatives', and 'secondaryAlternatives'.
+   - Include dual explanations ('clinical' and 'patientFriendly') for every rationale, contraindication, and safety note.
+   - Provide overall drug-drug interaction notes for the combined regimen under 'regimenInteractionNotes'.`;
+
+        // 🛡️️ Safe string normalization (handles null or undefined cleanly)
+        const cleanMeds = typeof medications === 'string' ? medications.trim() : '';
+        const cleanAllergies = typeof allergies === 'string' && allergies.trim() ? allergies.trim() : 'None provided';
+        const cleanDetails = typeof caseDetails === 'string' && caseDetails.trim() ? caseDetails.trim() : 'None provided';
+
+        const userPrompt = `Patient Case Input:
+    - Medications: ${cleanMeds}
+    - Allergies/Sensitivities: ${cleanAllergies}
+    - Clinical Context Details: ${cleanDetails}`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: userPrompt,
+            config: {
+                systemInstruction,
+                responseMimeType: 'application/json',
+                responseSchema: analysisResponseSchema,
+            },
+        });
+
+        const rawText = response.text ?? '{}';
+        let parsedData;
+
+        // 🛡️ Safe JSON parse guard
+        try {
+            parsedData = JSON.parse(rawText);
+        } catch (parseError) {
+            console.error('Failed to parse Gemini response:', rawText);
+            return res.status(502).json({ error: 'Received malformed JSON from AI engine.' });
+        }
+
+        // 🛡️ Reject off-topic / non-medical inputs cleanly
+        if (parsedData.isValidInput === false) {
+            const userMsg = parsedData.regimenInteractionNotes?.[0]?.patientFriendly 
+                ?? 'I can only analyze medical data and medication regimens. Please try again.';
+            return res.status(400).json({ error: userMsg });
+        }
+
+        // Ensure timestamp is populated
+        if (!parsedData.meta?.timestamp) {
+            parsedData.meta = {
+                timestamp: new Date().toISOString(),
+                model: 'gemini-2.5-flash',
+            };
+        }
+
+        return res.json(parsedData);
+    } catch (error) {
+        console.error('API Error:', error);
+        return res.status(500).json({ error: 'Failed to process clinical analysis.' });
     }
-
-    const systemInstruction = `
-      You are an expert clinical pharmacologist assisting healthcare providers. 
-      Analyze the provided patient details (current medications, allergies, and clinical context) and evaluate potential medication alternatives.
-      Provide evidence-based alternatives, flag potential cross-reactivities or contraindications, and provide key monitoring parameters.
-      Always adhere strictly to the JSON schema requested.
-    `;
-
-    const userPrompt = `
-      Patient Current Medications: ${medications}
-      Known Allergies: ${allergies || 'None reported'}
-      Case Details & Symptoms: ${contextDetails || 'None reported'}
-    `;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: userPrompt,
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json',
-        responseSchema: alternativeResponseSchema,
-        temperature: 0.2,
-      },
-    });
-
-    if (!response.text) {
-      throw new Error('No content returned from Gemini.');
-    }
-
-    const structuredData = JSON.parse(response.text);
-    return res.json(structuredData);
-
-  } catch (error: any) {
-    console.error('Error analyzing medication alternatives:', error);
-    return res.status(500).json({ 
-      error: 'Failed to process clinical analysis.', 
-      details: error.message 
-    });
-  }
 });
 
-app.listen(port, () => {
-  console.log(`⚡️ [malt-ai-api] Server running at http://localhost:${port}`);
+const PORT = 5001;
+app.listen(PORT, () => {
+    console.log(`Malt AI backend running on http://localhost:${PORT}`);
 });
