@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -6,7 +7,77 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' });
+const PORT = process.env.PORT || 3000;
+const apiKey = process.env.GEMINI_API_KEY;
+
+if (!apiKey) {
+    console.error('FATAL ERROR: GEMINI_API_KEY is not defined in environment variables.');
+    process.exit(1);
+}
+
+const ai = new GoogleGenAI({ apiKey });
+
+// Helper to sanitize conflicting avoidances vs alternatives
+function filterConflictingAvoidances(analysis: any) {
+    if (!analysis) return;
+
+    // Extract all recommended alternative class names (clinical & patient friendly)
+const recommendedClasses: string[] = [
+    ...(analysis.primaryAlternatives || []),
+    ...(analysis.secondaryAlternatives || []),
+]
+    .map(alt => alt.drugClass?.clinical?.toLowerCase())
+    .filter((cls): cls is string => Boolean(cls && cls.length > 2));
+
+    // Filter out any avoidances that conflict with recommended drug classes
+    if (Array.isArray(analysis.medicationsToAvoid)) {
+        analysis.medicationsToAvoid = analysis.medicationsToAvoid.filter((avoid: any) => {
+            const avoidTerm = avoid.drugOrClass?.toLowerCase() || '';
+
+            const hasConflict = recommendedClasses.some(cls => {
+                if (!cls || !avoidTerm) return false;
+                // Check direct substring matches or common class acronyms like ARB
+                return avoidTerm.includes(cls) || cls.includes(avoidTerm);
+            });
+
+            return !hasConflict;
+        });
+    }
+}
+
+async function generateContentWithFallback(contents: any, config?: any) {
+    const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+    let lastError: any = null;
+
+    for (const modelName of models) {
+        try {
+            console.log(`[Gemini API] Attempting request using model: ${modelName}...`);
+
+            const response = await ai.models.generateContent({
+                model: modelName,
+                contents,
+                config,
+            });
+
+            console.log(`[Gemini API] Success with model: ${modelName}`);
+            return response;
+        } catch (error: any) {
+            lastError = error;
+            const status = error?.status || error?.code;
+
+            console.warn(`[Gemini API] Call to ${modelName} failed (status ${status}): ${error?.message || error}`);
+
+            // Break early on Auth/Permission issues
+            if (status === 401 || status === 403) {
+                throw error;
+            }
+
+            console.warn(`[Gemini API] Retrying with secondary fallback model...`);
+        }
+    }
+
+    throw lastError || new Error('All model endpoints failed to process request.');
+}
 
 // Define strict Gemini Response Schema
 const analysisResponseSchema = {
@@ -27,7 +98,14 @@ const analysisResponseSchema = {
                 type: Type.OBJECT,
                 properties: {
                     targetDrug: { type: Type.STRING },
-                    reasonForSwitch: { type: Type.STRING }, // 👈 Added explicit property
+                    reasonForSwitch: {
+                        type: Type.OBJECT,
+                        properties: {
+                            clinical: { type: Type.STRING },
+                            patientFriendly: { type: Type.STRING },
+                        },
+                        required: ['clinical', 'patientFriendly'],
+                    },
                     medicationsToAvoid: {
                         type: Type.ARRAY,
                         items: {
@@ -53,7 +131,14 @@ const analysisResponseSchema = {
                             type: Type.OBJECT,
                             properties: {
                                 drugName: { type: Type.STRING },
-                                drugClass: { type: Type.STRING },
+                                drugClass: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        clinical: { type: Type.STRING },
+                                        patientFriendly: { type: Type.STRING }
+                                    },
+                                    required: ['clinical', 'patientFriendly']
+                                },
                                 whyItIsTheBestAlternative: {
                                     type: Type.OBJECT,
                                     properties: {
@@ -85,7 +170,14 @@ const analysisResponseSchema = {
                             type: Type.OBJECT,
                             properties: {
                                 drugName: { type: Type.STRING },
-                                drugClass: { type: Type.STRING },
+                                drugClass: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        clinical: { type: Type.STRING },
+                                        patientFriendly: { type: Type.STRING }
+                                    },
+                                    required: ['clinical', 'patientFriendly']
+                                },
                                 whyItIsTheBestAlternative: {
                                     type: Type.OBJECT,
                                     properties: {
@@ -134,87 +226,111 @@ const analysisResponseSchema = {
     required: ['isValidInput', 'meta', 'medicationAnalyses', 'regimenInteractionNotes'],
 };
 
-app.post('/api/analyze', async (req, res) => {
-    try {
-        const { medications, allergies, caseDetails } = req.body;
-
-        // Guard against missing, empty, or whitespace-only inputs
-        if (!medications || typeof medications !== 'string' || medications.trim().length < 2) {
-            return res.status(400).json({
-                error: 'Invalid input: At least one medication name is required.',
-            });
-        }
-
-        const systemInstruction = `You are Malt AI, an advanced clinical decision support tool for medication alternatives and pharmacology analysis.
+// System instruction string defining persona & input guardrails
+const SYSTEM_INSTRUCTION = `You are Malt AI, an advanced clinical decision support tool for medication alternatives and pharmacology analysis.
 
 CRITICAL INSTRUCTIONS:
 1. INPUT VALIDATION & NON-MEDICAL DATA GUARD:
    - Carefully evaluate the user's input ('medications', 'allergies', 'caseDetails').
-   - If the input consists of conversational chit-chat, random gibberish, non-medical topics, or does not contain recognizable medications or clinical scenarios, set 'isValidInput' to false.
+   - Set 'isValidInput' to true if the input contains recognizable medications (prescription or OTC), topical treatments, home/herbal remedies, or active clinical symptoms/scenarios seeking therapeutic alternatives.
+   - Set 'isValidInput' to false ONLY if the input consists purely of non-medical chit-chat, random gibberish, or completely non-health-related topics.
    - When 'isValidInput' is false, leave 'medicationAnalyses' as an empty array and provide a polite, dual-language explanation under 'regimenInteractionNotes':
-     * 'clinical': "Input non-actionable. Please provide valid pharmacological or clinical case data for analysis."
-     * 'patientFriendly': "I can only analyze medical data and medication regimens. Please enter valid medications to try again."
+     * 'clinical': "Input non-actionable. Please provide valid pharmacological, OTC, or clinical case data for analysis."
+     * 'patientFriendly': "I can only analyze medical data, treatments, and clinical symptoms. Please enter a valid medication, treatment, or symptom to try again."
 
 2. FOR VALID MEDICAL INPUTS (Set 'isValidInput' to true):
    - Parse 'medications' into individual target drugs and create a block under 'medicationAnalyses' for EACH listed drug.
    - For each target drug, provide 'medicationsToAvoid', 'primaryAlternatives', and 'secondaryAlternatives'.
    - Include dual explanations ('clinical' and 'patientFriendly') for every rationale, contraindication, and safety note.
-   - Provide overall drug-drug interaction notes for the combined regimen under 'regimenInteractionNotes'.`;
+   - Provide overall drug-drug interaction notes for the combined regimen under 'regimenInteractionNotes'.
+   - Only suggest alternatives that are clinically indicated or standard-of-care for the user's specific symptom or condition.
+   - If the user requests a specific number of alternatives (e.g., 'give me 4 options') but fewer safe, clinically appropriate options exist, return only the viable options and explain why.
+   - Reserve non-pharmacologic or herbal/supplement options (e.g., Peppermint Oil, Magnesium) for secondaryAlternatives rather than primaryAlternatives.
+   - For 'reasonForSwitch':
+    * 'clinical': Use formal medical terminology (e.g., "Absolute contraindication due to ACE-inhibitor-induced angioedema").
+    * 'patientFriendly': Plain, 6th-grade English explaining WHY the drug needs to change without medical jargon (e.g., "You need to stop taking this drug because it caused a severe allergic reaction in the past").
+   - Ensure NO raw medical jargon (like 'angioedema', 'hyperkalemia', or 'renal hemodynamics') appears inside ANY 'patientFriendly' field without an immediate, plain-English explanation in parentheses (e.g., "high blood potassium (hyperkalemia)").
+   - For 'drugClass':
+    * 'clinical': Use formal medical classification (e.g., "Dihydropyridine Calcium Channel Blocker", "Non-opioid Analgesic / Antipyretic").
+    * 'patientFriendly': Use simple, 6th-grade descriptors (e.g., "Blood Vessel Relaxing Blood Pressure Pill", "Pain & Fever Reliever (Non-Opioid)").
+   - Do NOT list a drug class or medication in 'medicationsToAvoid' if you have recommended a drug from that exact same class as a 'primaryAlternative' or 'secondaryAlternative'. If a drug class carries a relative caution (e.g., ARBs after ACEi angioedema), explain the caution inside the 'safetyConsiderations' field of the recommended alternative instead.
+   - Assign 'Contraindicated' (not 'Major') to any medication, supplement, or interaction where administration poses an immediate, severe safety hazard or directly worsens an existing dangerous lab value (e.g., Potassium supplements when serum potassium is ≥5.0 mEq/L).
+   - Zero Unexplained Jargon Rule:
+    * In ANY 'patientFriendly' output, eliminate unexplained medical terms. 
+    * Replace or translate terms as follows:
+        - "Non-opioid Analgesic" ➔ "Non-habit-forming Pain Reliever"
+        - "Antipyretic" ➔ "Fever Reducer"
+        - "Topical NSAID" ➔ "Pain Gel Applied to Skin"
+        - "Thiazide-like Diuretic" ➔ "Water Pill"
+        - "Dihydropyridine Calcium Channel Blocker" ➔ "Blood Vessel Relaxer"
+        - "Hyperkalemia" ➔ "High Blood Potassium"
+        - "Peripheral Edema" ➔ "Ankle & Leg Swelling"
+   `;
 
-        // 🛡️️ Safe string normalization (handles null or undefined cleanly)
-        const cleanMeds = typeof medications === 'string' ? medications.trim() : '';
-        const cleanAllergies = typeof allergies === 'string' && allergies.trim() ? allergies.trim() : 'None provided';
-        const cleanDetails = typeof caseDetails === 'string' && caseDetails.trim() ? caseDetails.trim() : 'None provided';
+// Root route
+app.get('/', (req, res) => {
+    return res.status(200).json({
+        status: 'ok',
+        message: 'Malt AI API is active'
+    });
+});
 
-        const userPrompt = `Patient Case Input:
-    - Medications: ${cleanMeds}
-    - Allergies/Sensitivities: ${cleanAllergies}
-    - Clinical Context Details: ${cleanDetails}`;
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    return res.status(200).json({
+        status: 'ok',
+        message: "Malt AI API health check!",
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        geminiConfigured: Boolean(apiKey && apiKey.trim() !== ''),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: userPrompt,
-            config: {
-                systemInstruction,
-                responseMimeType: 'application/json',
-                responseSchema: analysisResponseSchema,
-            },
+app.post('/api/analyze', async (req, res) => {
+    try {
+        const { medications, allergies, caseDetails } = req.body;
+
+        if (!medications || typeof medications !== 'string' || !medications.trim()) {
+            return res.status(400).json({ error: 'Medications field is required.' });
+        }
+
+        const prompt = `Analyze the following patient scenario for drug-drug interactions and alternative options:
+Medications: ${medications.trim()}
+Allergies: ${typeof allergies === 'string' && allergies.trim() ? allergies.trim() : 'None listed'}
+Case Details: ${typeof caseDetails === 'string' && caseDetails.trim() ? caseDetails.trim() : 'None listed'}`;
+
+        const response = await generateContentWithFallback(prompt, {
+            systemInstruction: SYSTEM_INSTRUCTION,
+            responseMimeType: 'application/json',
+            responseSchema: analysisResponseSchema,
         });
 
-        const rawText = response.text ?? '{}';
-        let parsedData;
+        const responseText = response.text?.trim() ?? "";
 
-        // 🛡️ Safe JSON parse guard
-        try {
-            parsedData = JSON.parse(rawText);
-        } catch (parseError) {
-            console.error('Failed to parse Gemini response:', rawText);
-            return res.status(502).json({ error: 'Received malformed JSON from AI engine.' });
+        if (!responseText) {
+            return res.status(502).json({ error: 'Model returned an empty response.' });
         }
 
-        // 🛡️ Reject off-topic / non-medical inputs cleanly
-        if (parsedData.isValidInput === false) {
-            const userMsg = parsedData.regimenInteractionNotes?.[0]?.patientFriendly 
-                ?? 'I can only analyze medical data and medication regimens. Please try again.';
-            return res.status(400).json({ error: userMsg });
+        const cleanJson = responseText.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+        const data = JSON.parse(cleanJson);
+
+        // Sanitize conflicting avoidances vs alternatives before returning
+        if (data.isValidInput && Array.isArray(data.medicationAnalyses)) {
+            data.medicationAnalyses.forEach((analysis: any) => {
+                filterConflictingAvoidances(analysis);
+            });
         }
 
-        // Ensure timestamp is populated
-        if (!parsedData.meta?.timestamp) {
-            parsedData.meta = {
-                timestamp: new Date().toISOString(),
-                model: 'gemini-2.5-flash',
-            };
-        }
-
-        return res.json(parsedData);
-    } catch (error) {
-        console.error('API Error:', error);
-        return res.status(500).json({ error: 'Failed to process clinical analysis.' });
+        return res.json(data);
+    } catch (error: any) {
+        console.error('API Handler Error:', error);
+        return res.status(500).json({
+            error: error.message || 'Failed to generate clinical analysis.',
+        });
     }
 });
 
-const PORT = 5001;
 app.listen(PORT, () => {
     console.log(`Malt AI backend running on http://localhost:${PORT}`);
 });
