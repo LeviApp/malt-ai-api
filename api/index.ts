@@ -46,7 +46,7 @@ function filterConflictingAvoidances(analysis: any) {
 }
 
 async function generateContentWithFallback(contents: any, config?: any) {
-    const models = ['gemini-2.5-flash', 'gemini-1.5-flash']; // Use standard production models
+    const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
     let lastError: any = null;
 
     // Set defaults while allowing incoming config to override if needed
