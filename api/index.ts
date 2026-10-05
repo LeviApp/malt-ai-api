@@ -22,12 +22,12 @@ function filterConflictingAvoidances(analysis: any) {
     if (!analysis) return;
 
     // Extract all recommended alternative class names (clinical & patient friendly)
-const recommendedClasses: string[] = [
-    ...(analysis.primaryAlternatives || []),
-    ...(analysis.secondaryAlternatives || []),
-]
-    .map(alt => alt.drugClass?.clinical?.toLowerCase())
-    .filter((cls): cls is string => Boolean(cls && cls.length > 2));
+    const recommendedClasses: string[] = [
+        ...(analysis.primaryAlternatives || []),
+        ...(analysis.secondaryAlternatives || []),
+    ]
+        .map(alt => alt.drugClass?.clinical?.toLowerCase())
+        .filter((cls): cls is string => Boolean(cls && cls.length > 2));
 
     // Filter out any avoidances that conflict with recommended drug classes
     if (Array.isArray(analysis.medicationsToAvoid)) {
@@ -46,8 +46,15 @@ const recommendedClasses: string[] = [
 }
 
 async function generateContentWithFallback(contents: any, config?: any) {
-    const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+    const models = ['gemini-2.5-flash', 'gemini-1.5-flash']; // Use standard production models
     let lastError: any = null;
+
+    // Set defaults while allowing incoming config to override if needed
+    const requestConfig = {
+        maxOutputTokens: 8192,
+        temperature: 0.1,
+        ...config,
+    };
 
     for (const modelName of models) {
         try {
@@ -56,7 +63,7 @@ async function generateContentWithFallback(contents: any, config?: any) {
             const response = await ai.models.generateContent({
                 model: modelName,
                 contents,
-                config,
+                config: requestConfig,
             });
 
             console.log(`[Gemini API] Success with model: ${modelName}`);
