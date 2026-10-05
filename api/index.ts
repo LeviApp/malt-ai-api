@@ -266,32 +266,29 @@ CRITICAL INSTRUCTIONS:
      * Sparse Input Handling: ONLY include the disclaimer "No additional health history or allergies were provided for this review." if the user provided ONLY a drug name with ZERO clinical history, symptoms, or allergies. If ANY background details or allergies are present, do NOT include this disclaimer.
 
 3. FOR VALID MEDICAL INPUTS (Set 'isValidInput' to true):
-   - Parse 'medications' into individual target drugs and create a block under 'medicationAnalyses' for EACH listed drug.
-   - For each target drug, provide 'medicationsToAvoid', 'primaryAlternatives', and 'secondaryAlternatives'.
+   - Exhaustively evaluate ALL input medications against clinical guidelines, lab values, and recorded allergies.
+   - Create a dedicated Target Drug entry under 'medicationAnalyses' ONLY for medications (prescription, OTC, or herbal) that require discontinuation, replacement, or dose adjustment due to safety hazards, interactions, or adverse effects, OR when explicitly requested by the user for replacement.
+   - If a medication is safe to continue without changes and was not requested for replacement, do NOT create a Target Drug card for it. Instead, explicitly list it as safe to continue inside 'regimenInteractionNotes'.
+   - Always format 'regimenInteractionNotes' as a dual-key object containing both 'clinical' and 'patientFriendly' fields.
+   - For every targeted drug requiring a replacement, provide 'medicationsToAvoid', 'primaryAlternatives', and 'secondaryAlternatives'.
    - Include dual explanations ('clinical' and 'patientFriendly') for every rationale, contraindication, and safety note.
-   - Provide overall drug-drug interaction notes for the combined regimen under 'regimenInteractionNotes'.
    - Only suggest alternatives that are clinically indicated or standard-of-care for the user's specific symptom or condition.
+   - Treat over-the-counter (OTC) medications, self-prescribed herbs, and supplements as active target medications if they cause acute toxicity, severe drug interactions, or organ harm.
+   - De-duplicate duplicate submissions (e.g., brand and generic names for the same drug) into a single Target Drug analysis. Explicitly flag combination products that contain overlapping active ingredients.
    - If the user requests a specific number of alternatives (e.g., 'give me 4 options') but fewer safe, clinically appropriate options exist, return only the viable options and explain why.
    - Reserve non-pharmacologic or herbal/supplement options (e.g., Peppermint Oil, Magnesium) for 'secondaryAlternatives' rather than 'primaryAlternatives'.
    - For 'reasonForSwitch':
      * 'clinical': Use formal medical terminology (e.g., "Absolute contraindication due to ACE-inhibitor-induced angioedema").
-     * 'patientFriendly': Plain, 6th-grade English explaining WHY the drug needs to change without medical jargon (e.g., "You need to stop taking this drug because it caused a severe allergic reaction in the past").
-   - Ensure NO raw medical jargon (like 'angioedema', 'hyperkalemia', or 'renal hemodynamics') appears inside ANY 'patientFriendly' field without an immediate, plain-English explanation in parentheses (e.g., "high blood potassium (hyperkalemia)").
+     * 'patientFriendly': Plain, 6th-grade English explaining WHY the drug needs to change without medical jargon (e.g., "You need to stop taking this drug because it caused severe allergic swelling in the past").
    - For 'drugClass':
      * 'clinical': Use formal medical classification (e.g., "Dihydropyridine Calcium Channel Blocker", "Non-opioid Analgesic / Antipyretic").
-     * 'patientFriendly': Use simple, 6th-grade descriptors (e.g., "Blood Vessel Relaxing Blood Pressure Pill", "Pain & Fever Reliever (Non-Opioid)").
+     * 'patientFriendly': Use simple, 6th-grade descriptors (e.g., "Blood Vessel Relaxing Blood Pressure Pill", "Non-habit-forming Pain & Fever Reliever").
    - Do NOT list a drug class or medication in 'medicationsToAvoid' if you have recommended a drug from that exact same class as a 'primaryAlternative' or 'secondaryAlternative'. If a drug class carries a relative caution (e.g., ARBs after ACEi angioedema), explain the caution inside the 'safetyConsiderations' field of the recommended alternative instead.
    - Assign 'Contraindicated' (not 'Major') to any medication, supplement, or interaction where administration poses an immediate, severe safety hazard or directly worsens an existing dangerous lab value (e.g., Potassium supplements when serum potassium is ≥5.0 mEq/L).
-   - Zero Unexplained Jargon Rule:
-     * In ANY 'patientFriendly' output, eliminate unexplained medical terms. 
-     * Replace or translate terms as follows:
-         - "Non-opioid Analgesic" ➔ "Non-habit-forming Pain Reliever"
-         - "Antipyretic" ➔ "Fever Reducer"
-         - "Topical NSAID" ➔ "Pain Gel Applied to Skin"
-         - "Thiazide-like Diuretic" ➔ "Water Pill"
-         - "Dihydropyridine Calcium Channel Blocker" ➔ "Blood Vessel Relaxer"
-         - "Hyperkalemia" ➔ "High Blood Potassium"
-         - "Peripheral Edema" ➔ "Ankle & Leg Swelling"
+   - Patient-Facing Jargon Rule:
+     * In ANY 'patientFriendly' field, write in plain, everyday language (6th-8th grade reading level).
+     * If a specific medical term is necessary for medical context, state the everyday explanation first, followed by the clinical term in parentheses (e.g., "high blood potassium (hyperkalemia)", "ankle & leg swelling (peripheral edema)", "water pill (diuretic)").
+     * NEVER output standalone, unexplained medical jargon in patient-facing fields without a preceding plain-English translation.
    `;
 
 // Root route
