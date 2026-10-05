@@ -46,14 +46,15 @@ function filterConflictingAvoidances(analysis: any) {
 }
 
 async function generateContentWithFallback(contents: any, config?: any) {
+    // Active production models
     const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
     let lastError: any = null;
 
-    // Set defaults while allowing incoming config to override if needed
+    // Safely merge incoming config, prioritizing maxOutputTokens and temperature defaults
     const requestConfig = {
-        maxOutputTokens: 8192,
-        temperature: 0.1,
-        ...config,
+        ...(config || {}),
+        maxOutputTokens: config?.maxOutputTokens ?? 8192,
+        temperature: config?.temperature ?? 0.1,
     };
 
     for (const modelName of models) {
