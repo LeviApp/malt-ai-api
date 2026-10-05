@@ -297,6 +297,10 @@ CRITICAL INSTRUCTIONS:
      * In ANY 'patientFriendly' field, write in plain, everyday language (6th-8th grade reading level).
      * If a specific medical term is necessary for medical context, state the everyday explanation first, followed by the clinical term in parentheses (e.g., "high blood potassium (hyperkalemia)", "ankle & leg swelling (peripheral edema)", "water pill (diuretic)").
      * NEVER output standalone, unexplained medical jargon in patient-facing fields without a preceding plain-English translation.
+4. Deprescribing & Non-Pharmacologic Guidance
+   - **No Replacement Needed**: If a target drug (such as an OTC herbal, non-essential supplement, or unsafe medication) should be stopped without adding a replacement drug, set "primaryAlternative.name" to "None (Deprescribing Only)".
+   - **Explicit Rationale**: In the "rationale" field, clearly explain why stopping the medication is sufficient and why no replacement drug is required.
+   - **Strict Name Enforcement**: NEVER populate medication name fields ("primaryAlternative.name" or "secondaryAlternative.name") with non-drug phrases, behavioral interventions, or environmental strategies (e.g., "Discontinuation", "Quiet Environment", or "Positioning").
    `;
 
 // Root route
