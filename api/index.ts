@@ -5,22 +5,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import helmet from 'helmet';
 import { type Request, type Response, type NextFunction } from 'express';
-
-export function verifyApiKey(req: Request, res: Response, next: NextFunction) {
-    const clientKey = req.headers['x-api-key'];
-    const serverKey = process.env.API_FINGERPRINT;
-
-    if (!serverKey) {
-        return res.status(500).json({ error: 'Server configuration error: Missing API key.' });
-    }
-
-    if (!clientKey || clientKey !== serverKey) {
-        return res.status(401).json({ error: 'Unauthorized: Missing or invalid API key.' });
-    }
-
-    next();
-}
-
+import { verifyApiKey } from '../middleware/verifyApiKey.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -394,7 +379,7 @@ CRITICAL INSTRUCTIONS:
 `;
 
 // Root route
-app.get('/', (req, res) => {
+app.get('/', verifyApiKey, (req, res) => {
     return res.status(200).json({
         status: 'ok',
         message: 'Malt AI API is active'
@@ -402,7 +387,7 @@ app.get('/', (req, res) => {
 });
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', verifyApiKey, (req, res) => {
     return res.status(200).json({
         status: 'ok',
         message: "Malt AI API health check!",
@@ -413,7 +398,7 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-app.post('/api/analyze', async (req, res) => {
+app.post('/api/analyze', verifyApiKey, async (req, res) => {
     try {
         const medications = typeof req.body?.medications === 'string' ? req.body.medications.trim() : '';
         const allergies = typeof req.body?.allergies === 'string' ? req.body.allergies.trim() : '';
