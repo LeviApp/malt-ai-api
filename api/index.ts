@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 5001;
-// const apiKey = process.env.GEMINI_API_KEY;
+const apiKey = process.env.GEMINI_API_KEY;
 
 // if (!apiKey) {
 //     console.error('FATAL ERROR: GEMINI_API_KEY is not defined in environment variables.');
@@ -363,25 +363,25 @@ const PORT = process.env.PORT || 5001;
 //    - Strict Name Enforcement: NEVER populate medication name fields with non-drug phrases, behavioral interventions, or environmental strategies.
 // `;
 
-// // Root route
-// app.get('/', (req, res) => {
-//     return res.status(200).json({
-//         status: 'ok',
-//         message: 'Malt AI API is active'
-//     });
-// });
+// Root route
+app.get('/', (req, res) => {
+    return res.status(200).json({
+        status: 'ok',
+        message: 'Malt AI API is active'
+    });
+});
 
-// // Health check endpoint
-// app.get('/api/health', (req, res) => {
-//     return res.status(200).json({
-//         status: 'ok',
-//         message: "Malt AI API health check!",
-//         uptime: process.uptime(),
-//         timestamp: new Date().toISOString(),
-//         geminiConfigured: Boolean(apiKey && apiKey.trim() !== ''),
-//         environment: process.env.NODE_ENV || 'development'
-//     });
-// });
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    return res.status(200).json({
+        status: 'ok',
+        message: "Malt AI API health check!",
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        geminiConfigured: Boolean(apiKey && apiKey.trim() !== ''),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
 
 // app.post('/api/analyze', async (req, res) => {
 //     try {
