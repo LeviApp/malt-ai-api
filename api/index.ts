@@ -1,18 +1,10 @@
+// THIS WAS THE LATEST COMMIT THAT WASN'T BROKEN ON LOCAL
+
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { GoogleGenAI, Type } from '@google/genai';
-import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
-import { verifyApiKey } from '../middleware/verifyApiKey.js';
-
-const analysisLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 20, // Limit each IP to 20 analysis requests per window
-    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-    legacyHeaders: false,
-    message: { error: 'Too many analysis requests from this IP, please try again after 15 minutes.' }
-});
 
 const app = express();
 app.use(helmet());
@@ -367,7 +359,7 @@ CRITICAL INSTRUCTIONS:
 `;
 
 // Root route
-app.get('/', analysisLimiter, verifyApiKey, (req, res) => {
+app.get('/', (req, res) => {
     return res.status(200).json({
         status: 'ok',
         message: 'Malt AI API is active'
@@ -375,7 +367,7 @@ app.get('/', analysisLimiter, verifyApiKey, (req, res) => {
 });
 
 // Health check endpoint
-app.get('/api/health', analysisLimiter, verifyApiKey, (req, res) => {
+app.get('/api/health', (req, res) => {
     return res.status(200).json({
         status: 'ok',
         message: "Malt AI API health check!",
@@ -386,7 +378,7 @@ app.get('/api/health', analysisLimiter, verifyApiKey, (req, res) => {
     });
 });
 
-app.post('/api/analyze', analysisLimiter, verifyApiKey, async (req, res) => {
+app.post('/api/analyze', async (req, res) => {
     try {
         const medications = typeof req.body?.medications === 'string' ? req.body.medications.trim() : '';
         const allergies = typeof req.body?.allergies === 'string' ? req.body.allergies.trim() : '';
