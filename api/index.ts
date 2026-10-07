@@ -394,7 +394,7 @@ app.post('/api/analyze', async (req, res) => {
         }
 
         const prompt = getSecureAnalysisPrompt(medications, allergies, caseDetails);
-        return
+
         const response = await generateContentWithFallback(prompt, {
             systemInstruction: SYSTEM_INSTRUCTION,
             responseMimeType: 'application/json',
