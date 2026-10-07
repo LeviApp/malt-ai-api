@@ -4,7 +4,23 @@ import cors from 'cors';
 import { GoogleGenAI, Type } from '@google/genai';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import helmet from 'helmet';
-import { verifyApiKey } from '../middleware/verifyApiKey.js';
+import { type Request, type Response, type NextFunction } from 'express';
+
+export function verifyApiKey(req: Request, res: Response, next: NextFunction) {
+    const clientKey = req.headers['x-api-key'];
+    const serverKey = process.env.API_FINGERPRINT;
+
+    if (!serverKey) {
+        return res.status(500).json({ error: 'Server configuration error: Missing API key.' });
+    }
+
+    if (!clientKey || clientKey !== serverKey) {
+        return res.status(401).json({ error: 'Unauthorized: Missing or invalid API key.' });
+    }
+
+    next();
+}
+
 
 const app = express();
 app.set('trust proxy', 1);
