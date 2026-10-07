@@ -15,6 +15,7 @@ const analysisLimiter = rateLimit({
 });
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
