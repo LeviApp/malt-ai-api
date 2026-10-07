@@ -6,6 +6,9 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { verifyApiKey } from '../middleware/verifyApiKey.js';
 
+const app = express();
+app.set('trust proxy', 1);
+
 const analysisLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 20, // Limit each IP to 20 analysis requests per window
@@ -19,8 +22,6 @@ const analysisLimiter = rateLimit({
     message: { error: 'Too many analysis requests from this IP, please try again after 15 minutes.' }
 });
 
-const app = express();
-app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
