@@ -381,55 +381,55 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-app.post('/api/analyze', async (req, res) => {
-    try {
-        const medications = typeof req.body?.medications === 'string' ? req.body.medications.trim() : '';
-        const allergies = typeof req.body?.allergies === 'string' ? req.body.allergies.trim() : '';
-        const caseDetails = typeof req.body?.caseDetails === 'string' ? req.body.caseDetails.trim() : '';
+// app.post('/api/analyze', async (req, res) => {
+//     try {
+//         const medications = typeof req.body?.medications === 'string' ? req.body.medications.trim() : '';
+//         const allergies = typeof req.body?.allergies === 'string' ? req.body.allergies.trim() : '';
+//         const caseDetails = typeof req.body?.caseDetails === 'string' ? req.body.caseDetails.trim() : '';
 
-        if (!medications && !allergies && !caseDetails) {
-            return res.status(400).json({ 
-                error: 'Please provide details in at least one field (Medications, Allergies, or Case Details) to run an analysis.' 
-            });
-        }
+//         if (!medications && !allergies && !caseDetails) {
+//             return res.status(400).json({ 
+//                 error: 'Please provide details in at least one field (Medications, Allergies, or Case Details) to run an analysis.' 
+//             });
+//         }
 
-        const prompt = getSecureAnalysisPrompt(medications, allergies, caseDetails);
-        return
-        const response = await generateContentWithFallback(prompt, {
-            systemInstruction: SYSTEM_INSTRUCTION,
-            responseMimeType: 'application/json',
-            responseSchema: analysisResponseSchema,
-        });
+//         const prompt = getSecureAnalysisPrompt(medications, allergies, caseDetails);
+//         return
+//         const response = await generateContentWithFallback(prompt, {
+//             systemInstruction: SYSTEM_INSTRUCTION,
+//             responseMimeType: 'application/json',
+//             responseSchema: analysisResponseSchema,
+//         });
 
-        const responseText = response?.text?.trim();
-        if (!responseText) {
-            return res.status(502).json({ error: 'Model returned an empty response.' });
-        }
+//         const responseText = response?.text?.trim();
+//         if (!responseText) {
+//             return res.status(502).json({ error: 'Model returned an empty response.' });
+//         }
 
-        const cleanJson = responseText.replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, '$1').trim();
-        let data: any;
+//         const cleanJson = responseText.replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, '$1').trim();
+//         let data: any;
         
-        try {
-            data = JSON.parse(cleanJson);
-        } catch (parseError) {
-            console.error('[API Route] JSON Parse Failure. Raw text:', responseText);
-            return res.status(502).json({ error: 'Model returned malformed JSON structure.' });
-        }
+//         try {
+//             data = JSON.parse(cleanJson);
+//         } catch (parseError) {
+//             console.error('[API Route] JSON Parse Failure. Raw text:', responseText);
+//             return res.status(502).json({ error: 'Model returned malformed JSON structure.' });
+//         }
 
-        if (data?.isValidInput && Array.isArray(data.medicationAnalyses)) {
-            for (const analysis of data.medicationAnalyses) {
-                filterConflictingAvoidances(analysis);
-            }
-        }
+//         if (data?.isValidInput && Array.isArray(data.medicationAnalyses)) {
+//             for (const analysis of data.medicationAnalyses) {
+//                 filterConflictingAvoidances(analysis);
+//             }
+//         }
 
-        return res.json(data);
-    } catch (error: any) {
-        console.error('API Handler Error:', error);
-        return res.status(500).json({
-            error: error?.message || 'Failed to generate clinical analysis.',
-        });
-    }
-});
+//         return res.json(data);
+//     } catch (error: any) {
+//         console.error('API Handler Error:', error);
+//         return res.status(500).json({
+//             error: error?.message || 'Failed to generate clinical analysis.',
+//         });
+//     }
+// });
 
 app.listen(PORT, () => {
     console.log(`Malt AI backend running on http://localhost:${PORT}`);
