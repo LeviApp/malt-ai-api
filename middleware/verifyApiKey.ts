@@ -4,6 +4,8 @@ export function verifyApiKey(req: Request, res: Response, next: NextFunction) {
     const clientKey = req.headers['x-api-key'];
     const serverKey = process.env.API_FINGERPRINT;
 
+    console.log({clientKey, serverKey})
+
     if (!serverKey) {
         return res.status(500).json({ error: 'Server configuration error: Missing API key.' });
     }
