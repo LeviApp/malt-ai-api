@@ -11,6 +11,11 @@ const analysisLimiter = rateLimit({
     max: 20, // Limit each IP to 20 analysis requests per window
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false,
+    // Bypasses the strict internal package validation check that triggers ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on Vercel
+    validate: {
+        trustProxy: false,
+        xForwardedForHeader: false,
+    },
     message: { error: 'Too many analysis requests from this IP, please try again after 15 minutes.' }
 });
 
