@@ -63,19 +63,33 @@ async function generateContentWithFallback(contents: any, config?: Record<string
     };
 
     for (const modelName of models) {
+        // Create an AbortController with a strict 15-second timeout per model
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
         try {
-            // Optional: Uncomment for local debugging, remove in high-perf production to cut I/O overhead
-            // console.debug(`[Gemini API] Requesting ${modelName}...`);
+            console.debug(`[Gemini API] Requesting ${modelName}...`);
 
-            const response = await ai.models.generateContent({
-                model: modelName,
-                contents,
-                config: requestConfig,
-            });
+            // Wrap the SDK call and the abort signal together
+            const response = await Promise.race([
+                ai.models.generateContent({
+                    model: modelName,
+                    contents,
+                    config: requestConfig,
+                }),
+                new Promise((_, reject) => {
+                    controller.signal.addEventListener('abort', () => {
+                        reject(new Error(`Model ${modelName} request timed out after 15 seconds.`));
+                    });
+                })
+            ]);
 
+            clearTimeout(timeoutId);
             return response;
         } catch (error: any) {
+            clearTimeout(timeoutId);
             lastError = error;
+            
             const status: number = error?.status || error?.code;
             const message: string = error?.message || String(error);
 
@@ -84,14 +98,7 @@ async function generateContentWithFallback(contents: any, config?: Record<string
                 throw error;
             }
 
-            const isTransient = status === 503 || status === 429 || status === 504 || message.includes('overloaded');
-            
-            if (!isTransient && status) {
-                // If it's another hard API error (e.g., 400 Bad Request), falling back won't help either
-                throw error;
-            }
-
-            console.warn(`[Gemini API] Model ${modelName} failed (status ${status || 'unknown'}). Falling back...`);
+            console.warn(`[Gemini API] Model ${modelName} failed or hung (${message}). Falling back to next model...`);
         }
     }
 
