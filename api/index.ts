@@ -49,56 +49,28 @@ function filterConflictingAvoidances(analysis: any): void {
 }
 
 async function generateContentWithFallback(contents: any, options?: { systemInstruction?: string; [key: string]: any }): Promise<any> {
-    const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
-    let lastError: unknown = null;
-
-    // Extract systemInstruction so we can pass it neatly inside config for the SDK
     const { systemInstruction, ...restOptions } = options || {};
 
-    for (const modelName of models) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+    console.debug(`[Sanity Test] Making direct call to gemini-3.8-flash (no fallback)...`);
 
-        try {
-            console.debug(`[Gemini API] Requesting ${modelName}...`);
-
-            // Correct SDK Shape: config contains systemInstruction, responseMimeType, and responseSchema
-            const response = await Promise.race([
-                ai.models.generateContent({
-                    model: modelName,
-                    contents,
-                    config: {
-                        maxOutputTokens: 8192,
-                        temperature: 0.1,
-                        ...(systemInstruction ? { systemInstruction } : {}),
-                        ...restOptions,
-                    },
-                }),
-                new Promise((_, reject) => {
-                    controller.signal.addEventListener('abort', () => {
-                        reject(new Error(`Model ${modelName} request timed out after 8 seconds.`));
-                    });
-                })
-            ]);
-
-            clearTimeout(timeoutId);
-            return response;
-        } catch (error: any) {
-            clearTimeout(timeoutId);
-            lastError = error;
-            
-            const status: number = error?.status || error?.code;
-            const message: string = error?.message || String(error);
-
-            if (status === 401 || status === 403) {
-                throw error;
-            }
-
-            console.warn(`[Gemini API] Model ${modelName} failed or hung (${message}). Falling back to next model...`);
-        }
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3.8-flash',
+            contents,
+            config: {
+                maxOutputTokens: 8192,
+                temperature: 0.1,
+                ...(systemInstruction ? { systemInstruction } : {}),
+                ...restOptions,
+            },
+        });
+        
+        console.debug(`[Sanity Test] Direct call succeeded!`);
+        return response;
+    } catch (error: any) {
+        console.error('[Sanity Test] Direct call failed with error:', error);
+        throw error;
     }
-
-    throw lastError || new Error('All model endpoints failed to process request.');
 }
 
 // Define strict Gemini Response Schema
