@@ -1,5 +1,3 @@
-// THIS WAS THE LATEST COMMIT THAT WASN'T BROKEN ON LOCAL
-
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -25,7 +23,6 @@ const ai = new GoogleGenAI({ apiKey });
 function filterConflictingAvoidances(analysis: any): void {
     if (!analysis?.medicationsToAvoid?.length) return;
 
-    // Explicitly type the accumulator array as string[]
     const recommendedClasses: string[] = [];
     
     const collectClasses = (alts: any[] | undefined): void => {
@@ -41,7 +38,6 @@ function filterConflictingAvoidances(analysis: any): void {
 
     if (recommendedClasses.length === 0) return;
 
-    // Filter avoidances with explicit parameter typing
     analysis.medicationsToAvoid = analysis.medicationsToAvoid.filter((avoid: any) => {
         const avoidTerm = avoid?.drugOrClass?.toLowerCase();
         if (!avoidTerm) return true;
@@ -52,29 +48,32 @@ function filterConflictingAvoidances(analysis: any): void {
     });
 }
 
-async function generateContentWithFallback(contents: any, config?: Record<string, any>): Promise<any> {
+async function generateContentWithFallback(contents: any, options?: { systemInstruction?: string; [key: string]: any }): Promise<any> {
     const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
     let lastError: unknown = null;
+
+    // Extract systemInstruction so it sits at the top-level request parameter
+    const { systemInstruction, ...configPassThrough } = options || {};
 
     const requestConfig = {
         maxOutputTokens: 8192,
         temperature: 0.1,
-        ...config,
+        ...configPassThrough,
     };
 
     for (const modelName of models) {
-        // Create an AbortController with a strict 8-second timeout for serverless environments
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
 
         try {
             console.debug(`[Gemini API] Requesting ${modelName}...`);
 
-            // Wrap the SDK call and the abort signal together
+            // Correct SDK Request Shape: systemInstruction is at the top level alongside model and contents
             const response = await Promise.race([
                 ai.models.generateContent({
                     model: modelName,
                     contents,
+                    ...(systemInstruction ? { systemInstruction } : {}),
                     config: requestConfig,
                 }),
                 new Promise((_, reject) => {
@@ -93,7 +92,6 @@ async function generateContentWithFallback(contents: any, config?: Record<string
             const status: number = error?.status || error?.code;
             const message: string = error?.message || String(error);
 
-            // Fail fast on non-recoverable client/auth errors
             if (status === 401 || status === 403) {
                 throw error;
             }
@@ -391,18 +389,16 @@ app.post('/api/analyze', async (req, res) => {
         const allergies = typeof req.body?.allergies === 'string' ? req.body.allergies.trim() : '';
         const caseDetails = typeof req.body?.caseDetails === 'string' ? req.body.caseDetails.trim() : '';
 
-        // Strict validation: Require at least one field to have content
         if (!medications && !allergies && !caseDetails) {
             return res.status(400).json({ 
                 error: 'Please provide details in at least one field (Medications, Allergies, or Case Details) to run an analysis.' 
             });
         }
 
-        // 1. Use the secure prompt builder for the main request payload
         const prompt = getSecureAnalysisPrompt(medications, allergies, caseDetails);
 
+        // Pass systemInstruction cleanly alongside configuration options
         const response = await generateContentWithFallback(prompt, {
-            // 2. Pass your static clinical rulebook here
             systemInstruction: SYSTEM_INSTRUCTION,
             responseMimeType: 'application/json',
             responseSchema: analysisResponseSchema,
@@ -413,7 +409,6 @@ app.post('/api/analyze', async (req, res) => {
             return res.status(502).json({ error: 'Model returned an empty response.' });
         }
 
-        // Clean markdown block wrappers safely
         const cleanJson = responseText.replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, '$1').trim();
         let data: any;
         
@@ -424,7 +419,6 @@ app.post('/api/analyze', async (req, res) => {
             return res.status(502).json({ error: 'Model returned malformed JSON structure.' });
         }
 
-        // Sanitize conflicting avoidances vs alternatives before returning
         if (data?.isValidInput && Array.isArray(data.medicationAnalyses)) {
             for (const analysis of data.medicationAnalyses) {
                 filterConflictingAvoidances(analysis);
