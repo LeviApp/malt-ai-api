@@ -452,6 +452,11 @@ app.post('/api/analyze', analysisLimiter, verifyApiKey, async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Malt AI backend running on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 5001;
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
+
+export default app;
