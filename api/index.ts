@@ -63,9 +63,9 @@ async function generateContentWithFallback(contents: any, config?: Record<string
     };
 
     for (const modelName of models) {
-        // Create an AbortController with a strict 15-second timeout per model
+        // Create an AbortController with a strict 8-second timeout for serverless environments
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
 
         try {
             console.debug(`[Gemini API] Requesting ${modelName}...`);
@@ -79,7 +79,7 @@ async function generateContentWithFallback(contents: any, config?: Record<string
                 }),
                 new Promise((_, reject) => {
                     controller.signal.addEventListener('abort', () => {
-                        reject(new Error(`Model ${modelName} request timed out after 15 seconds.`));
+                        reject(new Error(`Model ${modelName} request timed out after 8 seconds.`));
                     });
                 })
             ]);
