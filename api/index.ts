@@ -394,7 +394,7 @@ CRITICAL INSTRUCTIONS:
 `;
 
 // Root route
-app.get('/', analysisLimiter, (req, res) => {
+app.get('/', (req, res) => {
     return res.status(200).json({
         status: 'ok',
         message: 'Malt AI API is active'
@@ -402,7 +402,7 @@ app.get('/', analysisLimiter, (req, res) => {
 });
 
 // Health check endpoint
-app.get('/api/health', analysisLimiter, (req, res) => {
+app.get('/api/health', (req, res) => {
     return res.status(200).json({
         status: 'ok',
         message: "Malt AI API health check!",
@@ -413,7 +413,7 @@ app.get('/api/health', analysisLimiter, (req, res) => {
     });
 });
 
-app.post('/api/analyze', analysisLimiter, async (req, res) => {
+app.post('/api/analyze', async (req, res) => {
     try {
         const medications = typeof req.body?.medications === 'string' ? req.body.medications.trim() : '';
         const allergies = typeof req.body?.allergies === 'string' ? req.body.allergies.trim() : '';
