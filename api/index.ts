@@ -431,6 +431,12 @@ app.get('/api/health', (req, res) => {
 //     }
 // });
 
-app.listen(PORT, () => {
-    console.log(`Malt AI backend running on http://localhost:${PORT}`);
-});
+// Only listen locally if not running in a serverless environment like Vercel
+if (process.env.NODE_ENV === 'development') {
+    app.listen(PORT, () => {
+        console.log(`Malt AI backend running on http://localhost:${PORT}`);
+    });
+}
+
+// REQUIRED for Vercel/serverless deployment
+export default app;
