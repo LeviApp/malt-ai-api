@@ -28,7 +28,10 @@ const analysisLimiter = async (req: any, res: any, next: any) => {
 };
 
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+    origin: 'https://malt-ai.vercel.app',
+    allowedHeaders: ['Content-Type', 'x-api-key']
+}));
 app.use(express.json());
 
 const PORT = process.env.PORT || 5001;
