@@ -2,25 +2,29 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { GoogleGenAI, Type } from '@google/genai';
-import rateLimit from 'express-rate-limit';
+import { RateLimiterMemory } from 'rate-limiter-flexible';
 import helmet from 'helmet';
 import { verifyApiKey } from '../middleware/verifyApiKey.js';
 
 const app = express();
 app.set('trust proxy', 1);
 
-const analysisLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 20, // Limit each IP to 20 analysis requests per window
-    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-    legacyHeaders: false,
-    // Bypasses the strict internal package validation check that triggers ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on Vercel
-    validate: {
-        trustProxy: false,
-        xForwardedForHeader: false,
-    },
-    message: { error: 'Too many analysis requests from this IP, please try again after 15 minutes.' }
+// Initialize rate-limiter-flexible (20 requests per 15 minutes by IP)
+const rateLimiter = new RateLimiterMemory({
+    points: 20,
+    duration: 15 * 60,
 });
+
+const analysisLimiter = async (req: any, res: any, next: any) => {
+    try {
+        await rateLimiter.consume(req.ip);
+        next();
+    } catch (rejRes) {
+        return res.status(429).json({ 
+            error: 'Too many analysis requests from this IP, please try again after 15 minutes.' 
+        });
+    }
+};
 
 app.use(helmet());
 app.use(cors());
