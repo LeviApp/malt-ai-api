@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { GoogleGenAI, Type } from '@google/genai';
 import helmet from 'helmet';
+import puppeteer from 'puppeteer';
 
 const app = express();
 app.use(helmet());
@@ -24,7 +25,7 @@ function filterConflictingAvoidances(analysis: any): void {
     if (!analysis?.medicationsToAvoid?.length) return;
 
     const recommendedClasses: string[] = [];
-    
+
     const collectClasses = (alts: any[] | undefined): void => {
         if (!Array.isArray(alts)) return;
         for (const alt of alts) {
@@ -42,13 +43,13 @@ function filterConflictingAvoidances(analysis: any): void {
         const avoidTerm = avoid?.drugOrClass?.toLowerCase();
         if (!avoidTerm) return true;
 
-        return !recommendedClasses.some((cls: string) => 
+        return !recommendedClasses.some((cls: string) =>
             avoidTerm === cls || (avoidTerm.length < cls.length && cls.includes(avoidTerm))
         );
     });
 }
 
-async function generateContentWithFallback(contents: any, options?: { systemInstruction?: string; [key: string]: any }): Promise<any> {
+async function generateContentWithFallback(contents: any, options?: { systemInstruction?: string;[key: string]: any }): Promise<any> {
     const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
     const maxRetriesPerModel = 2;
     const timeoutMs = 8000; // Kept tight for Vercel's serverless limits
@@ -70,7 +71,7 @@ async function generateContentWithFallback(contents: any, options?: { systemInst
                         contents,
                         config: {
                             // Slightly lowered maxOutputTokens to speed up time-to-first-byte for Vercel
-                            maxOutputTokens: 4096, 
+                            maxOutputTokens: 4096,
                             temperature: 0.1,
                             ...(systemInstruction ? { systemInstruction } : {}),
                             ...restOptions,
@@ -88,7 +89,7 @@ async function generateContentWithFallback(contents: any, options?: { systemInst
             } catch (error: any) {
                 clearTimeout(timeoutId);
                 lastError = error;
-                
+
                 const status: number = error?.status || error?.code;
                 const message: string = error?.message || String(error);
 
@@ -109,13 +110,13 @@ const analysisResponseSchema = {
     type: Type.OBJECT,
     properties: {
         isValidInput: { type: Type.BOOLEAN },
-        isEmergency: { 
-            type: Type.BOOLEAN, 
-            description: "True if the input triggered an emergency guard, first-aid guard, or safety warning that blocks the standard medication dashboard." 
+        isEmergency: {
+            type: Type.BOOLEAN,
+            description: "True if the input triggered an emergency guard, first-aid guard, or safety warning that blocks the standard medication dashboard."
         },
-        isHighAcuity: { 
-            type: Type.BOOLEAN, 
-            description: "Set to true for major/life-threatening emergencies requiring 911. Set to false for minor emergencies, first aid, or standard clinical cases." 
+        isHighAcuity: {
+            type: Type.BOOLEAN,
+            description: "Set to true for major/life-threatening emergencies requiring 911. Set to false for minor emergencies, first aid, or standard clinical cases."
         },
         inputSummary: {
             type: Type.OBJECT,
@@ -393,8 +394,8 @@ app.post('/api/analyze', async (req, res) => {
         const caseDetails = typeof req.body?.caseDetails === 'string' ? req.body.caseDetails.trim() : '';
 
         if (!medications && !allergies && !caseDetails) {
-            return res.status(400).json({ 
-                error: 'Please provide details in at least one field (Medications, Allergies, or Case Details) to run an analysis.' 
+            return res.status(400).json({
+                error: 'Please provide details in at least one field (Medications, Allergies, or Case Details) to run an analysis.'
             });
         }
 
@@ -413,7 +414,7 @@ app.post('/api/analyze', async (req, res) => {
 
         const cleanJson = responseText.replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, '$1').trim();
         let data: any;
-        
+
         try {
             data = JSON.parse(cleanJson);
         } catch (parseError) {
@@ -433,6 +434,65 @@ app.post('/api/analyze', async (req, res) => {
         return res.status(500).json({
             error: error?.message || 'Failed to generate clinical analysis.',
         });
+    }
+});
+
+app.post('/api/generate-pdf', async (req, res) => {
+    const { htmlContent } = req.body;
+
+    let browser;
+    try {
+        browser = await puppeteer.launch({ 
+            headless: true, 
+            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+        });
+        const page = await browser.newPage();
+
+        // 1. Force consistent desktop sizing so mobile responsiveness won't skew layout
+        await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 2 });
+
+        const fullPage = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+                <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;500;600;700&display=swap" rel="stylesheet">  
+                <style>
+                    /* Force font globally and preserve background colors/styling */
+                    body {
+                        font-family: 'Comfortaa', cursive, sans-serif !important;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                </style>
+            </head>
+            <body class="bg-white text-slate-900">
+                ${htmlContent}
+            </body>
+            </html>
+        `;
+
+        await page.setContent(fullPage, { waitUntil: 'networkidle0' as any });
+
+        // Ensure custom Google Fonts are fully loaded before capturing PDF
+        await page.evaluateHandle('document.fonts.ready');
+
+        const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' }
+        });
+
+        await browser.close();
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.send(pdfBuffer);
+
+    } catch (error) {
+        console.error("PDF generation failed:", error);
+        if (browser) await browser.close();
+        res.status(500).send({ error: 'Failed to generate PDF' });
     }
 });
 
