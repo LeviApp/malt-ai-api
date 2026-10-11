@@ -3,7 +3,6 @@ import express from 'express';
 import cors from 'cors';
 import { GoogleGenAI, Type } from '@google/genai';
 import helmet from 'helmet';
-import puppeteer from 'puppeteer';
 
 const app = express();
 app.use(helmet());
@@ -442,13 +441,27 @@ app.post('/api/generate-pdf', async (req, res) => {
 
     let browser;
     try {
-        browser = await puppeteer.launch({ 
-            headless: true, 
-            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
-        });
+        // Environment-aware launch configuration for Vercel vs Local
+        if (process.env.NODE_ENV === 'production') {
+            const chromium = await import('@sparticuz/chromium');
+            const puppeteerCore = await import('puppeteer-core');
+            
+            browser = await puppeteerCore.default.launch({
+                args: [...chromium.default.args, '--no-sandbox', '--disable-setuid-sandbox'],
+                executablePath: await chromium.default.executablePath(),
+            });
+        } else {
+            // Local development uses standard puppeteer
+            const puppeteer = await import('puppeteer');
+            browser = await puppeteer.default.launch({ 
+                headless: true, 
+                args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+            });
+        }
+
         const page = await browser.newPage();
 
-        // 1. Force consistent desktop sizing so mobile responsiveness won't skew layout
+        // Force consistent desktop sizing
         await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 2 });
 
         const fullPage = `
@@ -459,7 +472,6 @@ app.post('/api/generate-pdf', async (req, res) => {
                 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
                 <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;500;600;700&display=swap" rel="stylesheet">  
                 <style>
-                    /* Force font globally and preserve background colors/styling */
                     body {
                         font-family: 'Comfortaa', cursive, sans-serif !important;
                         -webkit-print-color-adjust: exact;
@@ -474,8 +486,6 @@ app.post('/api/generate-pdf', async (req, res) => {
         `;
 
         await page.setContent(fullPage, { waitUntil: 'networkidle0' as any });
-
-        // Ensure custom Google Fonts are fully loaded before capturing PDF
         await page.evaluateHandle('document.fonts.ready');
 
         const pdfBuffer = await page.pdf({
