@@ -437,7 +437,7 @@ app.post('/api/analyze', async (req, res) => {
 });
 
 app.post('/api/generate-pdf', async (req, res) => {
-    const { htmlContent } = req.body;
+    const { reportHTML } = req.body;
 
     let browser;
     try {
@@ -480,7 +480,7 @@ app.post('/api/generate-pdf', async (req, res) => {
                 </style>
             </head>
             <body class="bg-white text-slate-900">
-                ${htmlContent}
+                ${reportHTML}
             </body>
             </html>
         `;
