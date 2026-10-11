@@ -50,55 +50,58 @@ function filterConflictingAvoidances(analysis: any): void {
 
 async function generateContentWithFallback(contents: any, options?: { systemInstruction?: string; [key: string]: any }): Promise<any> {
     const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+    const maxRetriesPerModel = 2;
+    const timeoutMs = 8000; // Kept tight for Vercel's serverless limits
     let lastError: unknown = null;
 
-    // Extract systemInstruction so we can pass it neatly inside config for the SDK
     const { systemInstruction, ...restOptions } = options || {};
 
     for (const modelName of models) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        for (let attempt = 1; attempt <= maxRetriesPerModel; attempt++) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-        try {
-            console.debug(`[Gemini API] Requesting ${modelName}...`);
+            try {
+                console.debug(`[Gemini API] Requesting ${modelName} (Attempt ${attempt}/${maxRetriesPerModel})...`);
 
-            // Correct SDK Shape: config contains systemInstruction, responseMimeType, and responseSchema
-            const response = await Promise.race([
-                ai.models.generateContent({
-                    model: modelName,
-                    contents,
-                    config: {
-                        maxOutputTokens: 8192,
-                        temperature: 0.1,
-                        ...(systemInstruction ? { systemInstruction } : {}),
-                        ...restOptions,
-                    },
-                }),
-                new Promise((_, reject) => {
-                    controller.signal.addEventListener('abort', () => {
-                        reject(new Error(`Model ${modelName} request timed out after 8 seconds.`));
-                    });
-                })
-            ]);
+                const response = await Promise.race([
+                    ai.models.generateContent({
+                        model: modelName,
+                        contents,
+                        config: {
+                            // Slightly lowered maxOutputTokens to speed up time-to-first-byte for Vercel
+                            maxOutputTokens: 4096, 
+                            temperature: 0.1,
+                            ...(systemInstruction ? { systemInstruction } : {}),
+                            ...restOptions,
+                        },
+                    }),
+                    new Promise((_, reject) => {
+                        controller.signal.addEventListener('abort', () => {
+                            reject(new Error(`Model ${modelName} request timed out after ${timeoutMs / 1000} seconds.`));
+                        });
+                    })
+                ]);
 
-            clearTimeout(timeoutId);
-            return response;
-        } catch (error: any) {
-            clearTimeout(timeoutId);
-            lastError = error;
-            
-            const status: number = error?.status || error?.code;
-            const message: string = error?.message || String(error);
+                clearTimeout(timeoutId);
+                return response;
+            } catch (error: any) {
+                clearTimeout(timeoutId);
+                lastError = error;
+                
+                const status: number = error?.status || error?.code;
+                const message: string = error?.message || String(error);
 
-            if (status === 401 || status === 403) {
-                throw error;
+                if (status === 401 || status === 403) {
+                    throw error;
+                }
+
+                console.warn(`[Gemini API] Model ${modelName} (Attempt ${attempt}) failed/timed out: ${message}. Retrying...`);
             }
-
-            console.warn(`[Gemini API] Model ${modelName} failed or hung (${message}). Falling back to next model...`);
         }
     }
 
-    throw lastError || new Error('All model endpoints failed to process request.');
+    throw new Error('The clinical analysis request took longer than expected to process. Please try your search again.');
 }
 
 // Define strict Gemini Response Schema
@@ -293,73 +296,75 @@ B. Provide actionable pharmacological guidance, specialist escalation pathways (
 CRITICAL INSTRUCTIONS:
 
 1. CRITICAL EMERGENCY & ACUTE TRAUMA GUARD:
-    - EXCEPTION: Skip if input provides a comprehensive medication regimen with a clinical case review.
-    - If the input describes an active life-threatening emergency, acute physical trauma, uncontrolled bleeding, severe injury, or severe unexplained pain WITHOUT an existing home medication list:
-        * Set 'isValidInput' = true, 'isEmergency' = true, 'isHighAcuity' = true.
-        * Keep 'medicationAnalyses' = [].
-        * Issue immediate emergency instructions in 'regimenInteractionNotes' ('clinical' and 'patientFriendly').
-        * 'patientFriendly' Format: A single 2-to-3 sentence paragraph in simple 8th-grade language (no subheadings or asterisks). Sentence 1: Immediate action/stabilization. Sentence 2: Plain-language reason. Sentence 3: Safety warning.
+- EXCEPTION: Skip if input provides a comprehensive medication regimen with a clinical case review.
+- If the input describes an active life-threatening emergency, acute physical trauma, uncontrolled bleeding, severe injury, or severe unexplained pain WITHOUT an existing home medication list:
+- Set 'isValidInput' = true, 'isEmergency' = true, 'isHighAcuity' = true.
+- Keep 'medicationAnalyses' = [].
+- Issue immediate emergency instructions in 'regimenInteractionNotes' ('clinical' and 'patientFriendly').
+- 'patientFriendly' Format: A single 2-to-3 sentence paragraph in simple 8th-grade language (no subheadings or asterisks). Sentence 1: Immediate action/stabilization. Sentence 2: Plain-language reason. Sentence 3: Safety warning.
 
 2. POST-OPERATIVE & HIGH-RISK DIY SAFETY GUARD (CRITICAL HARD STOP):
-    - EXCEPTION: Skip if input provides a comprehensive medication regimen for routine clinical review.
-    - If the input describes a recent major surgery, acute trauma, unstable chronic condition, or high-risk clinical state (e.g., wisdom teeth extraction, dry socket, post-heart surgery, recent stroke, organ transplant, active bleeding) combined with a request for self-managed, over-the-counter, or DIY treatment:
-        * Set 'safety_modal_trigger' = "POST_OP_HIGH_RISK", 'isValidInput' = true, 'isEmergency' = true, 'isHighAcuity' = false.
-        * Keep 'medicationAnalyses' = []. Do NOT generate alternatives or dosing guidance.
-        * Issue a calm, professional precautionary warning inside 'regimenInteractionNotes' ('clinical' and 'patientFriendly'), mandating immediate professional escalation (calling treating physician, specialist, or urgent care).
+- EXCEPTION: Skip if input provides a comprehensive medication regimen for routine clinical review.
+- If the input describes a recent major surgery, acute trauma, unstable chronic condition, or high-risk clinical state (e.g., wisdom teeth extraction, dry socket, post-heart surgery, recent stroke, organ transplant, active bleeding) combined with a request for self-managed, over-the-counter, or DIY treatment:
+- Set 'safety_modal_trigger' = "POST_OP_HIGH_RISK", 'isValidInput' = true, 'isEmergency' = true, 'isHighAcuity' = false.
+- Keep 'medicationAnalyses' = []. Do NOT generate alternatives or dosing guidance.
+- Issue a calm, professional precautionary warning inside 'regimenInteractionNotes' ('clinical' and 'patientFriendly'), mandating immediate professional escalation (calling treating physician, specialist, or urgent care).
 
 3. LOW-ACUITY FIRST AID GUARD:
-    - EXCEPTION: Skip if input provides a comprehensive medication regimen for clinical review.
-    - If the input describes a minor injury, shallow cut, scrape, stubbed toe, or minor strain WITHOUT a home medication list:        
-        * Set 'isValidInput' = true, 'isEmergency' = true, 'isHighAcuity' = false.
-        * Keep 'medicationAnalyses' = [].
-        * Issue calm home care instructions in 'regimenInteractionNotes'.
-        * 'patientFriendly' Format: A single 2-to-3 sentence paragraph (no asterisks). Sentence 1: Immediate self-care step. Sentence 2: Supportive recovery step. Sentence 3: Universal red-flag warning.
+- EXCEPTION: Skip if input provides a comprehensive medication regimen for clinical review.
+- If the input describes a minor injury, shallow cut, scrape, stubbed toe, or minor strain WITHOUT a home medication list:        
+- Set 'isValidInput' = true, 'isEmergency' = true, 'isHighAcuity' = false.
+- Keep 'medicationAnalyses' = [].
+- Issue calm home care instructions in 'regimenInteractionNotes'.
+- 'patientFriendly' Format: A single 2-to-3 sentence paragraph (no asterisks). Sentence 1: Immediate self-care step. Sentence 2: Supportive recovery step. Sentence 3: Universal red-flag warning.
 
 4. SYMPTOM/CONDITION INPUT SAFETY & CONSENSUS GATE (UNIVERSAL MODAL TRIGGER):
-    - EXCEPTION: Skip if the input includes any medication, over-the-counter (OTC) product, or drug regimen.
-    - If the input describes raw clinical symptoms, diseases, or conditions (e.g., insomnia, chronic pain, runny nose) WITHOUT any medication or OTC product provided:
-        * Set 'isValidInput' = true, 'isEmergency' = true, 'isHighAcuity' = false.
-        * Keep 'medicationAnalyses' = [].
-        * Force output through the safety/guidance modal explaining that standalone symptoms cannot be evaluated without a medication or product context.
+- EXCEPTION 1: Skip if the input includes any medication, over-the-counter (OTC) product, dietary substance, or drug regimen.
+- EXCEPTION 2 (Clinical Dietary Context): Skip if the input couples a dietary item, food product, or substitute request with an explicit medical diagnosis, health circumstance, or clinical goal (e.g., "I have diabetes and need alternatives to sugar").
+- If the input describes raw clinical symptoms, diseases, or ungrounded lifestyle asks WITHOUT any medication, product, or accompanying medical background:
+- Set 'isValidInput' = true, 'isEmergency' = true, 'isHighAcuity' = false.
+- Keep 'medicationAnalyses' = [].
+- Force output through the safety/guidance modal explaining that standalone requests or symptoms cannot be evaluated without a medication, product, or medical circumstance context.
 
 5. SCOPE AND ALLERGY HANDLING RULE:
-   - Treat user allergies and medical history statements as valid clinical context. 
-   - CRITICAL ALLERGY RELEVANCE CONSTRAINT: Only populate the 'medicationsToAvoid' / Contraindications section with patient allergies if the target drug class poses a direct cross-reactivity risk or active contraindication (e.g., do NOT list penicillin allergies under a COVID-19 antiviral evaluation unless a penicillin-class antibiotic is being evaluated or recommended). Unrelated allergies must be acknowledged in the summary text if clinically prudent, but excluded from active contraindication warning blocks.
+- Treat user allergies and medical history statements as valid clinical context. 
+- CRITICAL ALLERGY RELEVANCE CONSTRAINT: Only populate the 'medicationsToAvoid' / Contraindications section with patient allergies if the target drug class poses a direct cross-reactivity risk or active contraindication (e.g., do NOT list penicillin allergies under a COVID-19 antiviral evaluation unless a penicillin-class antibiotic is being evaluated or recommended). Unrelated allergies must be acknowledged in the summary text if clinically prudent, but excluded from active contraindication warning blocks.
 
 6. INPUT VALIDATION & NON-MEDICAL DATA GUARD:
-    - For standard medical cases or exploratory single/multiple medication/OTC inputs, set 'isValidInput' = true, 'isEmergency' = false, 'isHighAcuity' = false.
-    - Set 'isValidInput' = false ONLY for non-medical chit-chat, random gibberish, or non-health topics.
-    - When 'isValidInput' is false, leave 'medicationAnalyses' = [] and provide:
-        * 'clinical': "Input non-actionable. Please provide valid pharmacological, OTC, or clinical case data for analysis."
-        * 'patientFriendly': "I can only analyze medical data, treatments, and clinical symptoms. Please enter a valid medication, treatment, or symptom to try again."
+- For standard medical cases, exploratory single/multiple medication/OTC inputs, or clinical dietary evaluations, set 'isValidInput' = true, 'isEmergency' = false, 'isHighAcuity' = false.
+- Set 'isValidInput' = false ONLY for non-medical chit-chat, random gibberish, or non-health topics.
+- When 'isValidInput' is false, leave 'medicationAnalyses' = [] and provide:
+- 'clinical': "Input non-actionable. Please provide valid pharmacological, OTC, or clinical case data for analysis."
+- 'patientFriendly': "I can only analyze medical data, treatments, and clinical symptoms. Please enter a valid medication, treatment, or symptom to try again."
 
 7. INPUT CONTEXT SUMMARY GENERATION:
-   - Construct a mandatory 'inputSummary' object for every analysis request:
-     * 'clinical': Dense 1-2 sentence medical recap using standard third-person clinical terminology (if provided).
-     * 'patientFriendly': Warm, clear 1-2 sentence summary in direct second-person address ("you" / "your") at a 6th-8th grade reading level outlining review goals and target drugs.
-   - Anti-Hallucination: Summarize ONLY explicitly provided inputs. Omit unstated demographics or background history entirely.
+- Construct a mandatory 'inputSummary' object for every analysis request:
+- 'clinical': Dense 1-2 sentence medical recap using standard third-person clinical terminology (if provided).
+- 'patientFriendly': Warm, clear 1-2 sentence summary in direct second-person address ("you" / "your") at a 6th-8th grade reading level outlining review goals and target drugs.
+- Anti-Hallucination: Summarize ONLY explicitly provided inputs. Omit unstated demographics or background history entirely.
 
 8. FOR VALID MEDICAL INPUTS (Set 'isValidInput' = true):
-    - Formulary & OTC Availability Transition EXCEPTION: If an unavailable prescription switches to an exact OTC equivalent, treat that exact OTC active ingredient as the Primary Alternative.
-    - Exhaustively evaluate all input medications against guidelines, labs, and allergies.
-    - Create a Target Drug entry under 'medicationAnalyses' for medications requiring discontinuation/replacement, OR for single, multiple, or over-the-counter (OTC) drug inputs entered for exploratory analysis. For exploratory single/sparse inputs, evaluate active ingredients, class safety, and potential common interactions even if no comprehensive daily medication list or medical history is provided.
-    - Format 'regimenInteractionNotes' as a dual-key object ('clinical' and 'patientFriendly').
-    - For targeted drugs requiring replacement, include 'medicationsToAvoid', 'primaryAlternatives', and 'secondaryAlternatives' with dual explanations.
-    - Treat OTC meds, herbs, and supplements as active target medications if they cause acute toxicity or severe interactions.
-    - De-duplicate brand/generic name pairs into a single Target Drug analysis.
-    - Reserve herbal/supplement options for 'secondaryAlternatives' rather than 'primaryAlternatives'.
-    - 'reasonForSwitch': 'clinical' uses formal medical terminology; 'patientFriendly' uses plain 6th-grade English.
-    - 'drugClass': 'clinical' uses formal medical classification; 'patientFriendly' uses simple 6th-grade descriptors.
-    - Do NOT list a class in 'medicationsToAvoid' if you recommended a drug from that exact class.
-    - Assign 'Contraindicated' (not 'Major') to any interaction posing an immediate severe safety hazard or worsening critical labs.
-    - Patient-Facing Jargon Rule: Write in plain language (6th-8th grade level). Always state the everyday explanation first, followed by the clinical term in parentheses if medical context is necessary (e.g., "high blood potassium (hyperkalemia)"). Never output standalone unexplained jargon.
-    - Exploratory & Educational Tone: When evaluating single, multiple, or OTC drug inputs without a broader medical history, adopt a helpful, consultative educational tone. Focus on explaining active ingredients, class mechanisms, and general usage considerations clearly in plain language, while seamlessly weaving in standard safety disclaimers rather than throwing rigid blockades.
+- Formulary & OTC Availability Transition EXCEPTION: If an unavailable prescription switches to an exact OTC equivalent, treat that exact OTC active ingredient as the Primary Alternative.
+- Exhaustively evaluate all input medications, dietary substances, and nutritional factors against guidelines, labs, and allergies.
+- Create a Target Drug entry under 'medicationAnalyses' for medications requiring discontinuation/replacement, OR for single, multiple, or over-the-counter (OTC) drug inputs, dietary items, and substitute requests entered for exploratory analysis. When evaluating dietary items or substances (like sugar or alternative sweeteners) tied to a health condition, treat the input substance as the target item and populate appropriate healthier alternatives in 'primaryAlternatives' and 'secondaryAlternatives'.
+- Format 'regimenInteractionNotes' as a dual-key object ('clinical' and 'patientFriendly').
+- For targeted items requiring replacement, include 'medicationsToAvoid', 'primaryAlternatives' (can include multiple distinct primary options if multiple equal first-line clinical guidelines or classes apply to the patient's profile), and 'secondaryAlternatives' with dual explanations.
+- Treat OTC meds, herbs, supplements, and dietary components as active target items if they cause metabolic stress or severe interactions.
+- De-duplicate brand/generic name pairs into a single Target Drug analysis.
+- Reserve herbal/supplement/lifestyle options for 'secondaryAlternatives' rather than 'primaryAlternatives'.
+- 'reasonForSwitch': 'clinical' uses formal medical terminology; 'patientFriendly' uses plain 6th-grade English.
+- 'drugClass': 'clinical' uses formal medical classification; 'patientFriendly' uses simple 6th-grade descriptors.
+- Do NOT list a class in 'medicationsToAvoid' if you recommended an item from that exact class.
+- Assign 'Contraindicated' (not 'Major') to any interaction posing an immediate severe safety hazard or worsening critical labs.
+- Patient-Facing Jargon Rule: Write in plain language (6th-8th grade level). Always state the everyday explanation first, followed by the clinical term in parentheses if medical context is necessary (e.g., "high blood potassium (hyperkalemia)"). Never output standalone unexplained jargon.
+- Exploratory & Educational Tone: When evaluating single, multiple, or OTC drug inputs without a broader medical history, adopt a helpful, consultative educational tone. Focus on explaining active ingredients, class mechanisms, and general usage considerations clearly in plain language, while seamlessly weaving in standard safety disaccord or disclaimers rather than throwing rigid blockades.
 
 9. DEPRESCRIBING & NON-PHARMACOLOGIC GUIDANCE:
-   - No Replacement Needed: If a target drug should be stopped without adding a replacement, set "primaryAlternative.name" to "None (Deprescribing Only)".
-   - Explicit Rationale: Clearly explain why stopping is sufficient in the "rationale" field.
-   - Strict Name Enforcement: NEVER populate medication name fields with non-drug phrases, behavioral interventions, or environmental strategies.
-`;
+- No Replacement Needed: If a target drug should be stopped without adding a replacement, set "primaryAlternative.name" to "None (Deprescribing Only)".
+- Explicit Rationale: Clearly explain why stopping is sufficient in the "rationale" field.
+- Strict Name Enforcement (Medications vs. Dietary Inputs): 
+    - For standard pharmaceutical medications and OTC drugs, NEVER populate medication name fields with non-drug phrases, behavioral interventions, or environmental strategies (strictly prohibit phrases like "Go for a walk" or "Lifestyle changes").
+    - For dietary, nutritional, or fluid-based inputs, allow natural food and beverage categories, but REQUIRE specific, concrete examples (e.g., "Water-rich produce like watermelon, cucumbers, and strawberries" or "Electrolyte-enhanced broths") to ensure actionable clinical utility.`;
 
 // Root route
 app.get('/', (req, res) => {
