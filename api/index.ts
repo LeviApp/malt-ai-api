@@ -411,7 +411,13 @@ app.post('/api/analyze', async (req, res) => {
             return res.status(502).json({ error: 'Model returned an empty response.' });
         }
 
-        const cleanJson = responseText.replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, '$1').trim();
+        let cleanJson = responseText.replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, '$1').trim();
+        const firstBrace = cleanJson.indexOf('{');
+        const lastBrace = cleanJson.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1) {
+            cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
+        }
+
         let data: any;
 
         try {
@@ -445,7 +451,7 @@ app.post('/api/generate-pdf', async (req, res) => {
         if (process.env.NODE_ENV === 'production') {
             const chromium = await import('@sparticuz/chromium');
             const puppeteerCore = await import('puppeteer-core');
-            
+
             browser = await puppeteerCore.default.launch({
                 args: [...chromium.default.args, '--no-sandbox', '--disable-setuid-sandbox'],
                 executablePath: await chromium.default.executablePath(),
@@ -453,9 +459,9 @@ app.post('/api/generate-pdf', async (req, res) => {
         } else {
             // Local development uses standard puppeteer
             const puppeteer = await import('puppeteer');
-            browser = await puppeteer.default.launch({ 
-                headless: true, 
-                args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+            browser = await puppeteer.default.launch({
+                headless: true,
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
             });
         }
 
