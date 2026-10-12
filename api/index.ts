@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 5001;
 const apiKey = process.env.GEMINI_API_KEY;
 
 if (!apiKey) {
-    console.error('FATAL ERROR: GEMINI_API_KEY is not defined in environment variables.');
+    console.error('FATAL ERROR: GEMINI_API_KEY is not defined in environment variables!');
     process.exit(1);
 }
 
