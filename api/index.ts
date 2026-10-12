@@ -51,7 +51,7 @@ function filterConflictingAvoidances(analysis: any): void {
 async function generateContentWithFallback(contents: any, options?: { systemInstruction?: string;[key: string]: any }): Promise<any> {
     const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
     const maxRetriesPerModel = 2;
-    const timeoutMs = 8000; // Kept tight for Vercel's serverless limits
+    const timeoutMs = 50000;
     let lastError: unknown = null;
 
     const { systemInstruction, ...restOptions } = options || {};
