@@ -70,9 +70,9 @@ async function generateContentWithFallback(contents: any, options?: { systemInst
                         model: modelName,
                         contents,
                         config: {
-                            maxOutputTokens: 8192, // Bumped up from 4096 for heavy multi-drug payloads
+                            maxOutputTokens: 8192,
                             temperature: 0.1,
-                            responseMimeType: 'application/json', // <--- Forces strict JSON output
+                            responseMimeType: 'application/json',
                             ...(systemInstruction ? { systemInstruction } : {}),
                             ...restOptions,
                         },
@@ -84,12 +84,34 @@ async function generateContentWithFallback(contents: any, options?: { systemInst
                     })
                 ]) as any;
 
-                // 2. PUT IT HERE: Right after receiving the response object
-                const rawText = response.text;                
+                clearTimeout(timeoutId);
+
+                // --- 1. CHECK FOR TOKEN TRUNCATION FIRST ---
+                const candidate = response.candidates?.[0];
+                if (candidate?.finishReason === 'MAX_TOKENS') {
+                    console.warn(`[Gemini API] Model ${modelName} hit MAX_TOKENS ceiling. Returning safety fallback.`);
+                    return {
+                        isValidInput: true,
+                        isEmergency: true,
+                        isHighAcuity: false,
+                        medicationAnalyses: [],
+                        inputSummary: {
+                            clinical: "Payload exceeded single-pass token capacity.",
+                            patientFriendly: "Your medication list is too large to process safely in a single pass."
+                        },
+                        regimenInteractionNotes: {
+                            clinical: "Analysis incomplete: The medication list exceeded maximum response token limits. Please split the regimen into batches of 15-20 medications for safe evaluation.",
+                            patientFriendly: "We were unable to complete a full review because the medication list is very long. Please try reviewing your medications in smaller groups of 15 to 20 drugs at a time."
+                        }
+                    };
+                }
+
+                // --- 2. PARSE JSON SAFELY ---
+                const rawText = response.text;
                 const safeJsonString = jsonrepair(rawText);
                 const parsedData = JSON.parse(safeJsonString);
-                clearTimeout(timeoutId);
                 return parsedData;
+
             } catch (error: any) {
                 clearTimeout(timeoutId);
                 lastError = error;
@@ -106,7 +128,17 @@ async function generateContentWithFallback(contents: any, options?: { systemInst
         }
     }
 
-    throw new Error('The clinical analysis request took longer than expected to process. Please try your search again.');
+    // If all models/retries fail completely, return your fallback object instead of crashing or throwing generic text
+    return {
+        isValidInput: true,
+        isEmergency: true,
+        isHighAcuity: false,
+        medicationAnalyses: [],
+        regimenInteractionNotes: {
+            clinical: "System error: Failed to generate complete clinical output after multiple attempts.",
+            patientFriendly: "An error occurred while processing this request. Please try submitting your medication list again."
+        }
+    };
 }
 
 // Define strict Gemini Response Schema
@@ -363,14 +395,22 @@ CRITICAL INSTRUCTIONS:
 - Assign 'Contraindicated' (not 'Major') to any interaction posing an immediate severe safety hazard or worsening critical labs.
 - Patient-Facing Jargon Rule: Write in plain language (6th-8th grade level). Always state the everyday explanation first, followed by the clinical term in parentheses if medical context is necessary (e.g., "high blood potassium (hyperkalemia)"). Never output standalone unexplained jargon.
 - Exploratory & Educational Tone: When evaluating single, multiple, or OTC drug inputs without a broader medical history, adopt a helpful, consultative educational tone. Focus on explaining active ingredients, class mechanisms, and general usage considerations clearly in plain language, while seamlessly weaving in standard safety disaccord or disclaimers rather than throwing rigid blockades.
-- Output Length & Truncation Guard: When generating multi-drug analyses (5+ items), keep rationale, switch reasons, and safety notes concise (1-2 sentences maximum) to ensure complete JSON generation within token limits.
 
 9. DEPRESCRIBING & NON-PHARMACOLOGIC GUIDANCE:
 - No Replacement Needed: If a target drug should be stopped without adding a replacement, set "primaryAlternative.name" to "None (Deprescribing Only)".
 - Explicit Rationale: Clearly explain why stopping is sufficient in the "rationale" field.
 - Strict Name Enforcement (Medications vs. Dietary Inputs): 
     - For standard pharmaceutical medications and OTC drugs, NEVER populate medication name fields with non-drug phrases, behavioral interventions, or environmental strategies (strictly prohibit phrases like "Go for a walk" or "Lifestyle changes").
-    - For dietary, nutritional, or fluid-based inputs, allow natural food and beverage categories, but REQUIRE specific, concrete examples (e.g., "Water-rich produce like watermelon, cucumbers, and strawberries" or "Electrolyte-enhanced broths") to ensure actionable clinical utility.`;
+    - For dietary, nutritional, or fluid-based inputs, allow natural food and beverage categories, but REQUIRE specific, concrete examples (e.g., "Water-rich produce like watermelon, cucumbers, and strawberries" or "Electrolyte-enhanced broths") to ensure actionable clinical utility.
+
+10. CRITICAL OUTPUT LENGTH GUARD (STRICT WORD LIMITS):
+To prevent JSON truncation, you MUST enforce these hard limits for EVERY medication target:
+- "reasonForSwitch": Max 15 words.
+- "rationale": Max 20 words.
+- "safetyNote": Max 15 words.
+- "medicationsToAvoid": Max 15 words.
+
+Be direct, punchy, and telegraphic. Prioritize brief clinical precision over long explanations.`;
 
 // Root route
 app.get('/', (req, res) => {
