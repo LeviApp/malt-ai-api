@@ -85,7 +85,7 @@ async function generateContentWithFallback(contents: any, options?: { systemInst
                 ]) as any;
 
                 // 2. PUT IT HERE: Right after receiving the response object
-                const rawText = response.text();
+                const rawText = response.text;                
                 const safeJsonString = jsonrepair(rawText);
                 const parsedData = JSON.parse(safeJsonString);
                 clearTimeout(timeoutId);
