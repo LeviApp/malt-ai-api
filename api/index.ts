@@ -465,38 +465,45 @@ app.post('/api/analyze', async (req, res) => {
             return res.json(data);
         }
 
-        // 3. CHUNKING PATH: If more than 3 drugs, split into batches of 3 and run in parallel
+        // Split parsed medList into chunks of 3
         const CHUNK_SIZE = 3;
-        const chunks: string[][] = [];
+        const chunks = [];
         for (let i = 0; i < medList.length; i += CHUNK_SIZE) {
             chunks.push(medList.slice(i, i + CHUNK_SIZE));
         }
 
-        console.info(`[Backend Batching] Regimen of ${medList.length} drugs split into ${chunks.length} parallel chunks.`);
+        // Concurrency limit: Process 4 chunks at a time to prevent server OOM and rate limits
+        const CONCURRENCY_LIMIT = 4;
+        const chunkResults = [];
 
-        const chunkPromises = chunks.map(async (chunk, index) => {
-            const chunkMedString = chunk.map((med, idx) => `${idx + 1}. ${med}`).join('\n');
-            const chunkPrompt = getSecureAnalysisPrompt(
-                chunkMedString,
-                allergies,
-                `${caseDetails} (Note: Batch ${index + 1} of ${chunks.length} for total regimen of ${medList.length} drugs).`
+        for (let i = 0; i < chunks.length; i += CONCURRENCY_LIMIT) {
+            const currentBatch = chunks.slice(i, i + CONCURRENCY_LIMIT);
+
+            console.log(`[Backend Batching] Processing chunks ${i + 1} to ${i + currentBatch.length} of ${chunks.length}...`);
+
+            const batchResults = await Promise.all(
+                currentBatch.map(chunkArray => {
+                    // Recombine the 3-drug chunk into a string and build the full prompt with allergies & case details
+                    const chunkMedicationsString = chunkArray.join(', ');
+                    const chunkPrompt = getSecureAnalysisPrompt(chunkMedicationsString, allergies, caseDetails);
+
+                    return generateContentWithFallback(chunkPrompt, {
+                        systemInstruction: SYSTEM_INSTRUCTION,
+                        responseMimeType: 'application/json',
+                        responseSchema: analysisResponseSchema,
+                    });
+                })
             );
 
-            return generateContentWithFallback(chunkPrompt, {
-                systemInstruction: SYSTEM_INSTRUCTION,
-                responseMimeType: 'application/json',
-                responseSchema: analysisResponseSchema,
-            });
-        });
-
-        const results = await Promise.all(chunkPromises);
+            chunkResults.push(...batchResults);
+        }
 
         // 4. MERGE RESULTS INTO A SINGLE UNIFIED RESPONSE
-        const mergedData = results[0] || {};
+        const mergedData = chunkResults[0] || {};
         const combinedAnalyses: any[] = [];
         const combinedNotes: any[] = [];
 
-        for (const resObj of results) {
+        for (const resObj of chunkResults) {
             if (resObj?.medicationAnalyses && Array.isArray(resObj.medicationAnalyses)) {
                 combinedAnalyses.push(...resObj.medicationAnalyses);
             }
