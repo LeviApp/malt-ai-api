@@ -465,8 +465,8 @@ app.post('/api/analyze', async (req, res) => {
             return res.json(data);
         }
 
-        // 3. CHUNKING PATH: If more than 10 drugs, split into batches of 10 and run in parallel
-        const CHUNK_SIZE = 10;
+        // 3. CHUNKING PATH: If more than 5 drugs, split into batches of 5 and run in parallel
+        const CHUNK_SIZE = 5;
         const chunks: string[][] = [];
         for (let i = 0; i < medList.length; i += CHUNK_SIZE) {
             chunks.push(medList.slice(i, i + CHUNK_SIZE));
