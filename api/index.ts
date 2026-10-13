@@ -403,15 +403,7 @@ CRITICAL INSTRUCTIONS:
 - Strict Name Enforcement (Medications vs. Dietary Inputs): 
 - For standard pharmaceutical medications and OTC drugs, NEVER populate medication name fields with non-drug phrases, behavioral interventions, or environmental strategies (strictly prohibit phrases like "Go for a walk" or "Lifestyle changes").
 - For dietary, nutritional, or fluid-based inputs, allow natural food and beverage categories, but REQUIRE specific, concrete examples (e.g., "Water-rich produce like watermelon, cucumbers, and strawberries" or "Electrolyte-enhanced broths") to ensure actionable clinical utility.
-
-10. CRITICAL OUTPUT LENGTH GUARD (STRICT WORD LIMITS):
-To prevent JSON truncation, enforce these hard limits for EVERY medication target:
-- "reasonForSwitch": Max 15 words.
-- "whyItIsTheBestAlternative": Max 20 words.
-- "safetyConsiderations": Max 15 words.
-- "reasonToAvoid": Max 15 words.
-
-Be direct, punchy, and telegraphic. Prioritize brief clinical precision over long explanations.`;
+`;
 // Root route
 app.get('/', (req, res) => {
     return res.status(200).json({
@@ -444,27 +436,90 @@ app.post('/api/analyze', async (req, res) => {
             });
         }
 
-        const prompt = getSecureAnalysisPrompt(medications, allergies, caseDetails);
+        // 1. Parse medications into individual items (handles commas, semicolons, newlines, or numbered lists)
+        const medList = medications
+            .split(/[\n,;]+/)
+            .map((m: string) => m.replace(/^\d+[\.\)]\s*/, '').trim())
+            .filter(Boolean);
 
-        // generateContentWithFallback already calls jsonrepair and JSON.parse, 
-        // returning the clean JavaScript object directly!
-        const data = await generateContentWithFallback(prompt, {
-            systemInstruction: SYSTEM_INSTRUCTION,
-            responseMimeType: 'application/json',
-            responseSchema: analysisResponseSchema,
-        });
+        // 2. STANDARD PATH: If 10 or fewer drugs, run your exact single-pass logic
+        if (medList.length <= 10) {
+            const prompt = getSecureAnalysisPrompt(medications, allergies, caseDetails);
 
-        if (!data) {
-            return res.status(502).json({ error: 'Model returned an empty response.' });
+            const data = await generateContentWithFallback(prompt, {
+                systemInstruction: SYSTEM_INSTRUCTION,
+                responseMimeType: 'application/json',
+                responseSchema: analysisResponseSchema,
+            });
+
+            if (!data) {
+                return res.status(502).json({ error: 'Model returned an empty response.' });
+            }
+
+            if (data?.isValidInput && Array.isArray(data.medicationAnalyses)) {
+                for (const analysis of data.medicationAnalyses) {
+                    filterConflictingAvoidances(analysis);
+                }
+            }
+
+            return res.json(data);
         }
 
-        if (data?.isValidInput && Array.isArray(data.medicationAnalyses)) {
-            for (const analysis of data.medicationAnalyses) {
-                filterConflictingAvoidances(analysis);
+        // 3. CHUNKING PATH: If more than 10 drugs, split into batches of 10 and run in parallel
+        const CHUNK_SIZE = 10;
+        const chunks: string[][] = [];
+        for (let i = 0; i < medList.length; i += CHUNK_SIZE) {
+            chunks.push(medList.slice(i, i + CHUNK_SIZE));
+        }
+
+        console.info(`[Backend Batching] Regimen of ${medList.length} drugs split into ${chunks.length} parallel chunks.`);
+
+        const chunkPromises = chunks.map(async (chunk, index) => {
+            const chunkMedString = chunk.map((med, idx) => `${idx + 1}. ${med}`).join('\n');
+            const chunkPrompt = getSecureAnalysisPrompt(
+                chunkMedString,
+                allergies,
+                `${caseDetails} (Note: Batch ${index + 1} of ${chunks.length} for total regimen of ${medList.length} drugs).`
+            );
+
+            return generateContentWithFallback(chunkPrompt, {
+                systemInstruction: SYSTEM_INSTRUCTION,
+                responseMimeType: 'application/json',
+                responseSchema: analysisResponseSchema,
+            });
+        });
+
+        const results = await Promise.all(chunkPromises);
+
+        // 4. MERGE RESULTS INTO A SINGLE UNIFIED RESPONSE
+        const mergedData = results[0] || {};
+        const combinedAnalyses: any[] = [];
+        const combinedNotes: any[] = [];
+
+        for (const resObj of results) {
+            if (resObj?.medicationAnalyses && Array.isArray(resObj.medicationAnalyses)) {
+                combinedAnalyses.push(...resObj.medicationAnalyses);
+            }
+            if (resObj?.regimenInteractionNotes && Array.isArray(resObj.regimenInteractionNotes)) {
+                combinedNotes.push(...resObj.regimenInteractionNotes);
             }
         }
 
-        return res.json(data);
+        // Apply your conflict filter across all merged analyses
+        for (const analysis of combinedAnalyses) {
+            filterConflictingAvoidances(analysis);
+        }
+
+        mergedData.medicationAnalyses = combinedAnalyses;
+        mergedData.regimenInteractionNotes = combinedNotes;
+
+        if (mergedData.inputSummary) {
+            mergedData.inputSummary.clinical = `Comprehensive evaluation of ${medList.length}-drug polypharmacy regimen processed across ${chunks.length} analytical batches.`;
+            mergedData.inputSummary.patientFriendly = `We successfully reviewed your complete list of ${medList.length} medications for safety and interactions.`;
+        }
+
+        return res.json(mergedData);
+
     } catch (error: any) {
         console.error('API Handler Error:', error);
         return res.status(500).json({
