@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { GoogleGenAI, Type } from '@google/genai';
 import helmet from 'helmet';
+import { jsonrepair } from 'jsonrepair';
 
 const app = express();
 app.use(helmet());
@@ -69,9 +70,9 @@ async function generateContentWithFallback(contents: any, options?: { systemInst
                         model: modelName,
                         contents,
                         config: {
-                            // Slightly lowered maxOutputTokens to speed up time-to-first-byte for Vercel
-                            maxOutputTokens: 4096,
+                            maxOutputTokens: 8192, // Bumped up from 4096 for heavy multi-drug payloads
                             temperature: 0.1,
+                            responseMimeType: 'application/json', // <--- Forces strict JSON output
                             ...(systemInstruction ? { systemInstruction } : {}),
                             ...restOptions,
                         },
@@ -81,10 +82,14 @@ async function generateContentWithFallback(contents: any, options?: { systemInst
                             reject(new Error(`Model ${modelName} request timed out after ${timeoutMs / 1000} seconds.`));
                         });
                     })
-                ]);
+                ]) as any;
 
+                // 2. PUT IT HERE: Right after receiving the response object
+                const rawText = response.text();
+                const safeJsonString = jsonrepair(rawText);
+                const parsedData = JSON.parse(safeJsonString);
                 clearTimeout(timeoutId);
-                return response;
+                return parsedData;
             } catch (error: any) {
                 clearTimeout(timeoutId);
                 lastError = error;
@@ -358,6 +363,7 @@ CRITICAL INSTRUCTIONS:
 - Assign 'Contraindicated' (not 'Major') to any interaction posing an immediate severe safety hazard or worsening critical labs.
 - Patient-Facing Jargon Rule: Write in plain language (6th-8th grade level). Always state the everyday explanation first, followed by the clinical term in parentheses if medical context is necessary (e.g., "high blood potassium (hyperkalemia)"). Never output standalone unexplained jargon.
 - Exploratory & Educational Tone: When evaluating single, multiple, or OTC drug inputs without a broader medical history, adopt a helpful, consultative educational tone. Focus on explaining active ingredients, class mechanisms, and general usage considerations clearly in plain language, while seamlessly weaving in standard safety disaccord or disclaimers rather than throwing rigid blockades.
+- Output Length & Truncation Guard: When generating multi-drug analyses (5+ items), keep rationale, switch reasons, and safety notes concise (1-2 sentences maximum) to ensure complete JSON generation within token limits.
 
 9. DEPRESCRIBING & NON-PHARMACOLOGIC GUIDANCE:
 - No Replacement Needed: If a target drug should be stopped without adding a replacement, set "primaryAlternative.name" to "None (Deprescribing Only)".
@@ -400,31 +406,16 @@ app.post('/api/analyze', async (req, res) => {
 
         const prompt = getSecureAnalysisPrompt(medications, allergies, caseDetails);
 
-        const response = await generateContentWithFallback(prompt, {
+        // generateContentWithFallback already calls jsonrepair and JSON.parse, 
+        // returning the clean JavaScript object directly!
+        const data = await generateContentWithFallback(prompt, {
             systemInstruction: SYSTEM_INSTRUCTION,
             responseMimeType: 'application/json',
             responseSchema: analysisResponseSchema,
         });
 
-        const responseText = response?.text?.trim();
-        if (!responseText) {
+        if (!data) {
             return res.status(502).json({ error: 'Model returned an empty response.' });
-        }
-
-        let cleanJson = responseText.replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, '$1').trim();
-        const firstBrace = cleanJson.indexOf('{');
-        const lastBrace = cleanJson.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1) {
-            cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
-        }
-
-        let data: any;
-
-        try {
-            data = JSON.parse(cleanJson);
-        } catch (parseError) {
-            console.error('[API Route] JSON Parse Failure. Raw text:', responseText);
-            return res.status(502).json({ error: 'Model returned malformed JSON structure.' });
         }
 
         if (data?.isValidInput && Array.isArray(data.medicationAnalyses)) {
@@ -497,7 +488,30 @@ app.post('/api/generate-pdf', async (req, res) => {
         const pdfBuffer = await page.pdf({
             format: 'A4',
             printBackground: true,
-            margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' }
+            // 1. Explicit margins are required for header/footer space
+            margin: {
+                top: '20mm',
+                bottom: '20mm',
+                right: '12mm',
+                left: '12mm'
+            },
+            // 2. Enable native header/footer rendering
+            displayHeaderFooter: true,
+            // 3. Slim running header (Note: Puppeteer suppresses headers on page 1 automatically if desired, 
+            // or you can style it compactly so it only shows essential context on continuation pages)
+            headerTemplate: `
+                <div style="font-family: 'Comfortaa', cursive, sans-serif; font-size: 7pt; color: #64748b; width: 100%; display: flex; justify-content: space-between; padding: 0 12mm; border-bottom: 1px solid #e2e8f0; margin-bottom: 4mm; padding-bottom: 4mm;">
+                    <span style="font-weight: bold;">Malt AI — Clinical Analysis Report</span>
+                    <span>Confidential Patient Summary</span>
+                </div>
+            `,
+            // 4. Clean professional footer with dynamic page numbering
+            footerTemplate: `
+                <div style="font-family: 'Comfortaa', cursive, sans-serif; font-size: 7pt; color: #64748b; width: 100%; display: flex; justify-content: space-between; padding: 0 12mm; border-top: 1px solid #e2e8f0; margin-top: 4mm; padding-top: 4mm;">
+                    <span>Clinical Decision Support Tool</span>
+                    <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+                </div>
+            `
         });
 
         await browser.close();
