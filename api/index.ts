@@ -381,9 +381,10 @@ CRITICAL INSTRUCTIONS:
 - Anti-Hallucination: Summarize ONLY explicitly provided inputs. Omit unstated demographics or background history entirely.
 
 8. FOR VALID MEDICAL INPUTS (Set 'isValidInput' = true):
+- COMPREHENSIVE REGIMEN EVALUATION: When a multi-drug regimen or list is provided, you MUST evaluate all listed items. Create a distinct 'medicationAnalyses' entry for EVERY medication requiring discontinuation, replacement, or safety intervention, as well as for single, multiple, or over-the-counter (OTC) drug inputs and dietary items entered for exploratory analysis. Do not stop after analyzing only the first item.
 - Formulary & OTC Availability Transition EXCEPTION: If an unavailable prescription switches to an exact OTC equivalent, treat that exact OTC active ingredient as the Primary Alternative.
 - Exhaustively evaluate all input medications, dietary substances, and nutritional factors against guidelines, labs, and allergies.
-- Create a Target Drug entry under 'medicationAnalyses' for medications requiring discontinuation/replacement, OR for single, multiple, or over-the-counter (OTC) drug inputs, dietary items, and substitute requests entered for exploratory analysis. When evaluating dietary items or substances (like sugar or alternative sweeteners) tied to a health condition, treat the input substance as the target item and populate appropriate healthier alternatives in 'primaryAlternatives' and 'secondaryAlternatives'.
+- When evaluating dietary items or substances (like sugar or alternative sweeteners) tied to a health condition, treat the input substance as the target item and populate appropriate healthier alternatives in 'primaryAlternatives' and 'secondaryAlternatives'.
 - Format 'regimenInteractionNotes' as a dual-key object ('clinical' and 'patientFriendly').
 - For targeted items requiring replacement, include 'medicationsToAvoid', 'primaryAlternatives' (can include multiple distinct primary options if multiple equal first-line clinical guidelines or classes apply to the patient's profile), and 'secondaryAlternatives' with dual explanations.
 - Treat OTC meds, herbs, supplements, and dietary components as active target items if they cause metabolic stress or severe interactions.
@@ -397,21 +398,20 @@ CRITICAL INSTRUCTIONS:
 - Exploratory & Educational Tone: When evaluating single, multiple, or OTC drug inputs without a broader medical history, adopt a helpful, consultative educational tone. Focus on explaining active ingredients, class mechanisms, and general usage considerations clearly in plain language, while seamlessly weaving in standard safety disaccord or disclaimers rather than throwing rigid blockades.
 
 9. DEPRESCRIBING & NON-PHARMACOLOGIC GUIDANCE:
-- No Replacement Needed: If a target drug should be stopped without adding a replacement, set "primaryAlternative.name" to "None (Deprescribing Only)".
-- Explicit Rationale: Clearly explain why stopping is sufficient in the "rationale" field.
+- No Replacement Needed: If a target drug should be stopped without adding a replacement, set "primaryAlternative.drugName" to "None (Deprescribing Only)".
+- Explicit Rationale: Clearly explain why stopping is sufficient in the "whyItIsTheBestAlternative" field.
 - Strict Name Enforcement (Medications vs. Dietary Inputs): 
-    - For standard pharmaceutical medications and OTC drugs, NEVER populate medication name fields with non-drug phrases, behavioral interventions, or environmental strategies (strictly prohibit phrases like "Go for a walk" or "Lifestyle changes").
-    - For dietary, nutritional, or fluid-based inputs, allow natural food and beverage categories, but REQUIRE specific, concrete examples (e.g., "Water-rich produce like watermelon, cucumbers, and strawberries" or "Electrolyte-enhanced broths") to ensure actionable clinical utility.
+- For standard pharmaceutical medications and OTC drugs, NEVER populate medication name fields with non-drug phrases, behavioral interventions, or environmental strategies (strictly prohibit phrases like "Go for a walk" or "Lifestyle changes").
+- For dietary, nutritional, or fluid-based inputs, allow natural food and beverage categories, but REQUIRE specific, concrete examples (e.g., "Water-rich produce like watermelon, cucumbers, and strawberries" or "Electrolyte-enhanced broths") to ensure actionable clinical utility.
 
 10. CRITICAL OUTPUT LENGTH GUARD (STRICT WORD LIMITS):
-To prevent JSON truncation, you MUST enforce these hard limits for EVERY medication target:
+To prevent JSON truncation, enforce these hard limits for EVERY medication target:
 - "reasonForSwitch": Max 15 words.
-- "rationale": Max 20 words.
-- "safetyNote": Max 15 words.
-- "medicationsToAvoid": Max 15 words.
+- "whyItIsTheBestAlternative": Max 20 words.
+- "safetyConsiderations": Max 15 words.
+- "reasonToAvoid": Max 15 words.
 
 Be direct, punchy, and telegraphic. Prioritize brief clinical precision over long explanations.`;
-
 // Root route
 app.get('/', (req, res) => {
     return res.status(200).json({
