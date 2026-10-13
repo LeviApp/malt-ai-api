@@ -52,7 +52,7 @@ function filterConflictingAvoidances(analysis: any): void {
 async function generateContentWithFallback(contents: any, options?: { systemInstruction?: string;[key: string]: any }): Promise<any> {
     const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
     const maxRetriesPerModel = 2;
-    const timeoutMs = 50000;
+    const timeoutMs = 120000;
     let lastError: unknown = null;
 
     const { systemInstruction, ...restOptions } = options || {};
@@ -472,8 +472,8 @@ app.post('/api/analyze', async (req, res) => {
             chunks.push(medList.slice(i, i + CHUNK_SIZE));
         }
 
-        // Concurrency limit: Process 4 chunks at a time to prevent server OOM and rate limits
-        const CONCURRENCY_LIMIT = 4;
+        // Concurrency limit: Process 8 chunks at a time to prevent server OOM and rate limits
+        const CONCURRENCY_LIMIT = 8;
         const chunkResults = [];
 
         for (let i = 0; i < chunks.length; i += CONCURRENCY_LIMIT) {
