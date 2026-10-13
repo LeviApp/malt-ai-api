@@ -498,17 +498,22 @@ app.post('/api/analyze', async (req, res) => {
             chunkResults.push(...batchResults);
         }
 
-        // 4. MERGE RESULTS INTO A SINGLE UNIFIED RESPONSE
-        const mergedData = chunkResults[0] || {};
+        // 4. MERGE RESULTS INTO A SINGLE UNIFIED RESPONSE (WITH CONSENSUS EMERGENCY GUARD)
         const combinedAnalyses: any[] = [];
-        const combinedNotes: any[] = [];
+        const clinicalNotesList: string[] = [];
+        const patientNotesList: string[] = [];
 
         for (const resObj of chunkResults) {
             if (resObj?.medicationAnalyses && Array.isArray(resObj.medicationAnalyses)) {
                 combinedAnalyses.push(...resObj.medicationAnalyses);
             }
-            if (resObj?.regimenInteractionNotes && Array.isArray(resObj.regimenInteractionNotes)) {
-                combinedNotes.push(...resObj.regimenInteractionNotes);
+            if (resObj?.regimenInteractionNotes) {
+                if (resObj.regimenInteractionNotes.clinical) {
+                    clinicalNotesList.push(resObj.regimenInteractionNotes.clinical);
+                }
+                if (resObj.regimenInteractionNotes.patientFriendly) {
+                    patientNotesList.push(resObj.regimenInteractionNotes.patientFriendly);
+                }
             }
         }
 
@@ -517,13 +522,25 @@ app.post('/api/analyze', async (req, res) => {
             filterConflictingAvoidances(analysis);
         }
 
-        mergedData.medicationAnalyses = combinedAnalyses;
-        mergedData.regimenInteractionNotes = combinedNotes;
+        // Consensus logic: Require at least 3 distinct chunks to flag an emergency 
+        // before turning on the global modal for massive regimens, preventing isolated chunk false positives.
+        const emergencyChunkCount = chunkResults.filter(c => c === true || c?.isEmergency === true).length;
+        const isGlobalEmergency = emergencyChunkCount >= Math.min(3, Math.ceil(chunks.length * 0.25));
 
-        if (mergedData.inputSummary) {
-            mergedData.inputSummary.clinical = `Comprehensive evaluation of ${medList.length}-drug polypharmacy regimen processed across ${chunks.length} analytical batches.`;
-            mergedData.inputSummary.patientFriendly = `We successfully reviewed your complete list of ${medList.length} medications for safety and interactions.`;
-        }
+        const mergedData = {
+            isValidInput: true,
+            isEmergency: isGlobalEmergency,
+            isHighAcuity: chunkResults.some(c => c?.isHighAcuity === true),
+            medicationAnalyses: combinedAnalyses,
+            inputSummary: {
+                clinical: `Comprehensive evaluation of ${medList.length}-drug polypharmacy regimen processed across ${chunks.length} analytical batches.`,
+                patientFriendly: `We successfully reviewed your complete list of ${medList.length} medications for safety and interactions.`
+            },
+            regimenInteractionNotes: {
+                clinical: clinicalNotesList.join('\n\n'),
+                patientFriendly: patientNotesList.join('\n\n')
+            }
+        };
 
         return res.json(mergedData);
 
