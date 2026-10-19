@@ -381,6 +381,8 @@ CRITICAL INSTRUCTIONS:
 - Anti-Hallucination: Summarize ONLY explicitly provided inputs. Omit unstated demographics or background history entirely.
 
 8. FOR VALID MEDICAL INPUTS (Set 'isValidInput' = true):
+- CHUNKED REGIMEN CONTEXT AWARENESS: When a medication list is evaluated in analytical subsets (chunks), each chunk represents a portion of a larger comprehensive regimen. You must evaluate the target drugs within the context of the broader multi-drug list provided.
+- CRITICAL ICU LIFE-SUPPORT PRESERVATION: Do not recommend discontinuing or replacing essential life-support, acute stabilization, or continuous ICU infusion drugs (such as vasopressors or critical care sedatives) unless there is a direct, severe, life-threatening drug-drug interaction with another agent in the regimen.
 - COMPREHENSIVE REGIMEN EVALUATION: When a multi-drug regimen or list is provided, you MUST evaluate all listed items. Create a distinct 'medicationAnalyses' entry for EVERY medication requiring discontinuation, replacement, or safety intervention, as well as for single, multiple, or over-the-counter (OTC) drug inputs and dietary items entered for exploratory analysis. Do not stop after analyzing only the first item.
 - Formulary & OTC Availability Transition EXCEPTION: If an unavailable prescription switches to an exact OTC equivalent, treat that exact OTC active ingredient as the Primary Alternative.
 - Exhaustively evaluate all input medications, dietary substances, and nutritional factors against guidelines, labs, and allergies.
@@ -436,13 +438,21 @@ app.post('/api/analyze', async (req, res) => {
             });
         }
 
-        // 1. Parse medications into individual items (handles commas, semicolons, newlines, or numbered lists)
+        // 1. Parse medications into individual items
         const medList = medications
             .split(/[\n,;]+/)
             .map((m: string) => m.replace(/^\d+[\.\)]\s*/, '').trim())
             .filter(Boolean);
 
-        // 2. STANDARD PATH: If 10 or fewer drugs, run your exact single-pass logic
+        // 🚨 ADD THIS GUARDRAIL: Hard cap on max total medications allowed at once
+        const MAX_ALLOWED_MEDS = 30;
+        if (medList.length > MAX_ALLOWED_MEDS) {
+            return res.status(400).json({
+                error: `Regimen exceeds maximum free-tier analysis threshold of ${MAX_ALLOWED_MEDS} medications. Please split your list into smaller batches to maintain clinical accuracy.`
+            });
+        }
+
+        // 2. STANDARD PATH: If 10 or fewer drugs, run exact single-pass logic
         if (medList.length <= 10) {
             const prompt = getSecureAnalysisPrompt(medications, allergies, caseDetails);
 
@@ -465,37 +475,42 @@ app.post('/api/analyze', async (req, res) => {
             return res.json(data);
         }
 
-        // Split parsed medList into chunks of 3
-        const CHUNK_SIZE = 3;
+        // 3. BATCHED PATH (11 to 30 drugs)
+        const CHUNK_SIZE = 5;
+        const CONCURRENCY_LIMIT = 2;
+        const BATCH_DELAY_MS = 3000;
+
         const chunks = [];
         for (let i = 0; i < medList.length; i += CHUNK_SIZE) {
             chunks.push(medList.slice(i, i + CHUNK_SIZE));
         }
 
-        // Concurrency limit: Process 8 chunks at a time to prevent server OOM and rate limits
-        const CONCURRENCY_LIMIT = 8;
         const chunkResults = [];
-
         for (let i = 0; i < chunks.length; i += CONCURRENCY_LIMIT) {
             const currentBatch = chunks.slice(i, i + CONCURRENCY_LIMIT);
 
-            console.log(`[Backend Batching] Processing chunks ${i + 1} to ${i + currentBatch.length} of ${chunks.length}...`);
+const batchResults = await Promise.all(
+    currentBatch.map(async (chunkArray) => {
+        const chunkMedicationsString = chunkArray.join(', ');
+        
+        // Pass BOTH the specific chunk drugs AND the full list summary context
+        const contextualizedCaseDetails = `[CHUCK EVALUATION CONTEXT: Evaluating subset (${chunkMedicationsString}) as part of a comprehensive ${medList.length}-drug regimen]. ${caseDetails}`;
+        
+        const chunkPrompt = getSecureAnalysisPrompt(chunkMedicationsString, allergies, contextualizedCaseDetails);
 
-            const batchResults = await Promise.all(
-                currentBatch.map(chunkArray => {
-                    // Recombine the 3-drug chunk into a string and build the full prompt with allergies & case details
-                    const chunkMedicationsString = chunkArray.join(', ');
-                    const chunkPrompt = getSecureAnalysisPrompt(chunkMedicationsString, allergies, caseDetails);
-
-                    return generateContentWithFallback(chunkPrompt, {
-                        systemInstruction: SYSTEM_INSTRUCTION,
-                        responseMimeType: 'application/json',
-                        responseSchema: analysisResponseSchema,
-                    });
-                })
-            );
+        return generateContentWithFallback(chunkPrompt, {
+            systemInstruction: SYSTEM_INSTRUCTION,
+            responseMimeType: 'application/json',
+            responseSchema: analysisResponseSchema,
+        });
+    })
+);
 
             chunkResults.push(...batchResults);
+
+            if (i + CONCURRENCY_LIMIT < chunks.length) {
+                await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+            }
         }
 
         // 4. MERGE RESULTS INTO A SINGLE UNIFIED RESPONSE (WITH CONSENSUS EMERGENCY GUARD)
