@@ -9,7 +9,7 @@ import { SAMPLE_CASE_STUDY_OUTPUT } from "../data/sampleCaseMockData.js"
 const app = express();
 app.use(helmet());
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 const PORT = process.env.PORT || 5001;
 const apiKey = process.env.GEMINI_API_KEY;
@@ -681,7 +681,6 @@ app.post('/api/generate-pdf', async (req, res) => {
 
     let browser;
     try {
-        // Environment-aware launch configuration for Vercel vs Local
         if (process.env.NODE_ENV === 'production') {
             const chromium = await import('@sparticuz/chromium');
             const puppeteerCore = await import('puppeteer-core');
@@ -701,7 +700,6 @@ app.post('/api/generate-pdf', async (req, res) => {
 
         const page = await browser.newPage();
 
-        // Force consistent desktop sizing
         await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 2 });
 
         const fullPage = `
@@ -717,6 +715,11 @@ app.post('/api/generate-pdf', async (req, res) => {
                         -webkit-print-color-adjust: exact;
                         print-color-adjust: exact;
                     }
+                    /* CRITICAL: Prevent cards from splitting awkwardly across page boundaries */
+                    .medication-card, .section-block, article {
+                        break-inside: avoid;
+                        page-break-inside: avoid;
+                    }
                 </style>
             </head>
             <body class="bg-white text-slate-900">
@@ -725,17 +728,16 @@ app.post('/api/generate-pdf', async (req, res) => {
             </html>
         `;
 
-        // Use domcontentloaded instead of networkidle0 to prevent CDN timeout hangs,
-        // then explicitly wait for fonts and Tailwind to settle.
-        await page.setContent(fullPage, { waitUntil: 'domcontentloaded' });
+        await page.setContent(fullPage, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.evaluateHandle('document.fonts.ready');
         
-        // Brief safety buffer for Tailwind browser script compilation
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Increased safety buffer to 1500ms to allow Tailwind v4 CDN runtime to parse massive payloads
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
         const pdfBuffer = await page.pdf({
             format: 'A4',
             printBackground: true,
+            timeout: 60000, // Explicitly prevent 30s timeout on large payloads
             margin: {
                 top: '20mm',
                 bottom: '20mm',
@@ -764,7 +766,6 @@ app.post('/api/generate-pdf', async (req, res) => {
         console.error("PDF generation failed:", error);
         res.status(500).send({ error: 'Failed to generate PDF' });
     } finally {
-        // GUARANTEED CLEANUP: Prevents zombie browser instances from leaking memory
         if (browser) {
             try {
                 await browser.close();

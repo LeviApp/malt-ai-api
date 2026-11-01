@@ -2399,5 +2399,348 @@ export const SAMPLE_CASE_STUDY_OUTPUT: SampleCaseStudyOutput[] = [
                 }
             ]
         }
-    }
+    },
+    
+//     {
+//     id: 25,
+//     mockOutput: {
+//         isValidInput: true,
+//         isEmergency: false,
+//         isHighAcuity: false,
+//         meta: { timestamp: "2026-10-31T00:00:00.000Z", model: "malt-ai-clinical-v2" },
+//         inputSummary: {
+//             clinical: "Comprehensive multi-system polypharmacy audit across 45 active agents in an 84 y/o patient with stage 3b CKD and HFpEF, addressing cumulative anticholinergic burden, renal accumulation risks, and hazardous drug-drug interactions.",
+//             patientFriendly: "Exhaustive multi-system safety review evaluating your entire 45-medication regimen to reduce kidney strain, dizziness, heavy fatigue, and dangerous drug interactions."
+//         },
+//         regimenInteractionNotes: [
+//             {
+//                 clinical: "CRITICAL 45-DRUG REGIMEN AUDIT: 1) Severe anticholinergic burden from multiple CNS agents driving cognitive decline. 2) High-risk renal accumulation of gabapentin, memantine, and digoxin in stage 3b CKD. 3) Dangerous triple-overlapping RAAS/potassium toxicity risks.",
+//                 patientFriendly: "We identified critical safety priorities: streamlining redundant sleep and nerve medications to clear mental fog, adjusting dosages for kidney function, and removing agents that strain your heart and kidneys."
+//             }
+//         ],
+//         medicationAnalyses: [
+//             {
+//                 targetDrug: "Apixaban 5mg",
+//                 reasonForSwitch: { clinical: "Requires renal vigilance in stage 3b CKD.", patientFriendly: "Blood thinner requiring kidney monitoring." },
+//                 medicationsToAvoid: [{ drugOrClass: "Strong dual P-gp/CYP3A4 inhibitors", severity: "High", reasonToAvoid: { clinical: "Elevates bleeding risk.", patientFriendly: "Increases bleeding risk." } }],
+//                 primaryAlternatives: [{ drugName: "Rivaroxaban (Renally Adjusted)", drugClass: { clinical: "DOAC", patientFriendly: "Blood Thinner" }, whyItIsTheBestAlternative: { clinical: "Maintains stroke prophylaxis.", patientFriendly: "Protects against stroke." }, safetyConsiderations: { clinical: "Monitor CrCl.", patientFriendly: "Check kidney lab tests." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Digoxin 0.125mg",
+//                 reasonForSwitch: { clinical: "Narrow therapeutic index in CKD stage 3b.", patientFriendly: "Can build up and cause fatigue." },
+//                 medicationsToAvoid: [{ drugOrClass: "Potassium-wasting diuretics", severity: "High", reasonToAvoid: { clinical: "Triggers toxicity.", patientFriendly: "Increases toxicity risk." } }],
+//                 primaryAlternatives: [{ drugName: "Metoprolol Succinate", drugClass: { clinical: "Beta-Blocker", patientFriendly: "Heart Rate Controller" }, whyItIsTheBestAlternative: { clinical: "Safer rate control.", patientFriendly: "Safer heart rate control." }, safetyConsiderations: { clinical: "Monitor pulse.", patientFriendly: "Check heart rate." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Furosemide 40mg",
+//                 reasonForSwitch: { clinical: "Variable bioavailability in CKD.", patientFriendly: "Fluid pill with variable absorption." },
+//                 medicationsToAvoid: [{ drugOrClass: "High-dose NSAIDs", severity: "High", reasonToAvoid: { clinical: "Causes AKI.", patientFriendly: "Causes kidney strain." } }],
+//                 primaryAlternatives: [{ drugName: "Torsemide", drugClass: { clinical: "Loop Diuretic", patientFriendly: "Water Pill" }, whyItIsTheBestAlternative: { clinical: "Predictable absorption.", patientFriendly: "More reliable absorption." }, safetyConsiderations: { clinical: "Monitor electrolytes.", patientFriendly: "Check electrolyte levels." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Spironolactone 25mg",
+//                 reasonForSwitch: { clinical: "Hyperkalemia risk with ACEi in CKD.", patientFriendly: "Raises potassium with kidney strain." },
+//                 medicationsToAvoid: [{ drugOrClass: "Potassium supplements", severity: "High", reasonToAvoid: { clinical: "Severe hyperkalemia.", patientFriendly: "Dangerous potassium buildup." } }],
+//                 primaryAlternatives: [{ drugName: "Eplerenone", drugClass: { clinical: "MRA", patientFriendly: "Heart Failure Pill" }, whyItIsTheBestAlternative: { clinical: "Greater selectivity.", patientFriendly: "Targeted receptor action." }, safetyConsiderations: { clinical: "Monitor K+.", patientFriendly: "Monitor blood potassium." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Metoprolol Succinate 100mg",
+//                 reasonForSwitch: { clinical: "Guideline-directed therapy, monitor fatigue.", patientFriendly: "Maintains heart rate control." },
+//                 medicationsToAvoid: [{ drugOrClass: "Non-DHP CCBs", severity: "High", reasonToAvoid: { clinical: "Bradycardia risk.", patientFriendly: "Causes slow heart rate." } }],
+//                 primaryAlternatives: [{ drugName: "Carvedilol", drugClass: { clinical: "Alpha/Beta Blocker", patientFriendly: "Blood Pressure Pill" }, whyItIsTheBestAlternative: { clinical: "Vasodilating properties.", patientFriendly: "Helps relax blood vessels." }, safetyConsiderations: { clinical: "Watch for dizziness.", patientFriendly: "Stand up slowly." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Lisinopril 20mg",
+//                 reasonForSwitch: { clinical: "Renal protection in HFpEF and CKD.", patientFriendly: "Protects heart and kidneys." },
+//                 medicationsToAvoid: [{ drugOrClass: "Neprilysin inhibitors without washout", severity: "High", reasonToAvoid: { clinical: "Angioedema risk.", patientFriendly: "Causes severe swelling." } }],
+//                 primaryAlternatives: [{ drugName: "Losartan", drugClass: { clinical: "ARB", patientFriendly: "Blood Pressure Pill" }, whyItIsTheBestAlternative: { clinical: "Lower cough incidence.", patientFriendly: "Less likely to cause a dry cough." }, safetyConsiderations: { clinical: "Check creatinine.", patientFriendly: "Monitor kidney tests." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Atorvastatin 80mg",
+//                 reasonForSwitch: { clinical: "High-intensity statin; evaluate myalgias in CKD.", patientFriendly: "High-dose cholesterol pill." },
+//                 medicationsToAvoid: [{ drugOrClass: "Strong CYP3A4 inhibitors", severity: "High", reasonToAvoid: { clinical: "Rhabdomyolysis risk.", patientFriendly: "Increases muscle damage risk." } }],
+//                 primaryAlternatives: [{ drugName: "Rosuvastatin 20mg", drugClass: { clinical: "Statin", patientFriendly: "Cholesterol Pill" }, whyItIsTheBestAlternative: { clinical: "Lower interaction potential.", patientFriendly: "Fewer drug interactions." }, safetyConsiderations: { clinical: "Monitor LFTs.", patientFriendly: "Check liver function." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Ezetimibe 10mg",
+//                 reasonForSwitch: { clinical: "Cholesterol absorption blocker; no renal adjustment.", patientFriendly: "Blocks cholesterol absorption." },
+//                 medicationsToAvoid: [],
+//                 primaryAlternatives: [{ drugName: "Atorvastatin 10mg", drugClass: { clinical: "Statin", patientFriendly: "Cholesterol Pill" }, whyItIsTheBestAlternative: { clinical: "Moderate intensity alternative.", patientFriendly: "Standard cholesterol support." }, safetyConsiderations: { clinical: "Monitor CK.", patientFriendly: "Check muscle enzymes." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Metformin 1000mg",
+//                 reasonForSwitch: { clinical: "Requires dose capping in stage 3b CKD.", patientFriendly: "Blood sugar pill capped for kidneys." },
+//                 medicationsToAvoid: [{ drugOrClass: "Iodinated Contrast", severity: "High", reasonToAvoid: { clinical: "Lactic acidosis risk.", patientFriendly: "Risk of serious acid buildup." } }],
+//                 primaryAlternatives: [{ drugName: "Linagliptin", drugClass: { clinical: "DPP-4 Inhibitor", patientFriendly: "Diabetes Pill" }, whyItIsTheBestAlternative: { clinical: "No renal adjustment needed.", patientFriendly: "Safe for kidney function." }, safetyConsiderations: { clinical: "Monitor HbA1c.", patientFriendly: "Check blood sugar." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Glipizide 10mg",
+//                 reasonForSwitch: { clinical: "Hypoglycemia risk in CKD; sulfa allergy caution.", patientFriendly: "Sulfonylurea risk in older adults." },
+//                 medicationsToAvoid: [{ drugOrClass: "Sulfa medications", severity: "High", reasonToAvoid: { clinical: "Cross-reactivity risk.", patientFriendly: "Allergy overlap." } }],
+//                 primaryAlternatives: [{ drugName: "Empagliflozin", drugClass: { clinical: "SGLT2 Inhibitor", patientFriendly: "Cardiorenal Sugar Pill" }, whyItIsTheBestAlternative: { clinical: "Organ protection.", patientFriendly: "Protects heart and kidneys." }, safetyConsiderations: { clinical: "Hydration check.", patientFriendly: "Drink plenty of water." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Insulin Glargine 32 units",
+//                 reasonForSwitch: { clinical: "Reduced renal clearance prolongs half-life.", patientFriendly: "Long-acting insulin requiring dose check." },
+//                 medicationsToAvoid: [],
+//                 primaryAlternatives: [{ drugName: "Insulin Degludec", drugClass: { clinical: "Basal Insulin", patientFriendly: "Stable Basal Insulin" }, whyItIsTheBestAlternative: { clinical: "Stable pharmacokinetic profile.", patientFriendly: "Smoother 24-hour control." }, safetyConsiderations: { clinical: "Glucose monitoring.", patientFriendly: "Check blood sugar daily." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Levothyroxine 125mcg",
+//                 reasonForSwitch: { clinical: "Separate timing from omeprazole.", patientFriendly: "Thyroid hormone replacement." },
+//                 medicationsToAvoid: [],
+//                 primaryAlternatives: [{ drugName: "Levothyroxine Liquid Solution", drugClass: { clinical: "Oral Solution", patientFriendly: "Liquid Thyroid Hormone" }, whyItIsTheBestAlternative: { clinical: "Absorption independent of pH.", patientFriendly: "Absorbs better with stomach acid meds." }, safetyConsiderations: { clinical: "Monitor TSH.", patientFriendly: "Check thyroid blood tests." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Omeprazole 40mg",
+//                 reasonForSwitch: { clinical: "Long-term PPI risks in CKD/osteoporosis.", patientFriendly: "Strong acid reducer." },
+//                 medicationsToAvoid: [{ drugOrClass: "Long-term high-dose PPIs", severity: "Moderate", reasonToAvoid: { clinical: "Bone mineral loss.", patientFriendly: "Reduces bone strength." } }],
+//                 primaryAlternatives: [{ drugName: "Famotidine 20mg", drugClass: { clinical: "H2 Blocker", patientFriendly: "Acid Reducer" }, whyItIsTheBestAlternative: { clinical: "Lower CKD risk.", patientFriendly: "Safer for long-term kidneys." }, safetyConsiderations: { clinical: "Renal adjustment.", patientFriendly: "Dose adjusted for kidneys." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Gabapentin 600mg TID",
+//                 reasonForSwitch: { clinical: "Renal accumulation causes confusion and edema.", patientFriendly: "Nerve pill building up in kidneys." },
+//                 medicationsToAvoid: [{ drugOrClass: "CNS Depressants", severity: "High", reasonToAvoid: { clinical: "Profound sedation.", patientFriendly: "Excessive drowsiness." } }],
+//                 primaryAlternatives: [{ drugName: "Pregabalin 50mg", drugClass: { clinical: "GABA Analogue", patientFriendly: "Nerve Pain Pill" }, whyItIsTheBestAlternative: { clinical: "Predictable titration.", patientFriendly: "Easier dose titration." }, safetyConsiderations: { clinical: "Monitor dizziness.", patientFriendly: "Watch for dizziness." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Duloxetine 60mg",
+//                 reasonForSwitch: { clinical: "Serotonergic duplication and anticholinergic load.", patientFriendly: "Antidepressant and nerve pain pill." },
+//                 medicationsToAvoid: [{ drugOrClass: "Multiple Serotonergic Agents", severity: "High", reasonToAvoid: { clinical: "Serotonin syndrome risk.", patientFriendly: "Risk of chemical overload." } }],
+//                 primaryAlternatives: [{ drugName: "Gabapentin (Low Dose)", drugClass: { clinical: "Neuropathic Agent", patientFriendly: "Nerve Pain Pill" }, whyItIsTheBestAlternative: { clinical: "Targeted pain control.", patientFriendly: "Targeted nerve support." }, safetyConsiderations: { clinical: "Taper slowly.", patientFriendly: "Reduce dose gradually." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Sertraline 100mg",
+//                 reasonForSwitch: { clinical: "Rationalize redundant antidepressant therapy.", patientFriendly: "First-line antidepressant." },
+//                 medicationsToAvoid: [{ drugOrClass: "MAOIs", severity: "High", reasonToAvoid: { clinical: "Life-threatening reaction.", patientFriendly: "Dangerous drug clash." } }],
+//                 primaryAlternatives: [{ drugName: "Citalopram (Low Dose)", drugClass: { clinical: "SSRI", patientFriendly: "Antidepressant" }, whyItIsTheBestAlternative: { clinical: "Simpler monotherapy.", patientFriendly: "Streamlined mood support." }, safetyConsiderations: { clinical: "Monitor QT.", patientFriendly: "Check heart rhythm." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Trazodone 50mg",
+//                 reasonForSwitch: { clinical: "Orthostatic hypotension and fall risks.", patientFriendly: "Sedating antidepressant for sleep." },
+//                 medicationsToAvoid: [{ drugOrClass: "CNS Depressants", severity: "High", reasonToAvoid: { clinical: "Fall risk in elderly.", patientFriendly: "High risk of falls." } }],
+//                 primaryAlternatives: [{ drugName: "Melatonin", drugClass: { clinical: "Supplement", patientFriendly: "Sleep Aid" }, whyItIsTheBestAlternative: { clinical: "Non-sedating circadian support.", patientFriendly: "Natural sleep support." }, safetyConsiderations: { clinical: "Good sleep hygiene.", patientFriendly: "Maintain good sleep habits." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Zolpidem 5mg",
+//                 reasonForSwitch: { clinical: "Beers criteria high-risk sedative-hypnotic.", patientFriendly: "Prescription sleep aid." },
+//                 medicationsToAvoid: [{ drugOrClass: "Sedative-Hypnotics", severity: "High", reasonToAvoid: { clinical: "Cognitive impairment and falls.", patientFriendly: "Causes confusion and falls." } }],
+//                 primaryAlternatives: [{ drugName: "Ramelteon", drugClass: { clinical: "Melatonin Receptor Agonist", patientFriendly: "Sleep Medication" }, whyItIsTheBestAlternative: { clinical: "No complex behaviors.", patientFriendly: "Safer sleep regulation." }, safetyConsiderations: { clinical: "Counsel on sleep habits.", patientFriendly: "Practice good sleep hygiene." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Montelukast 10mg",
+//                 reasonForSwitch: { clinical: "Neuropsychiatric risk profile in elderly.", patientFriendly: "Asthma controller pill." },
+//                 medicationsToAvoid: [{ drugOrClass: "Neuropsychiatric Risk Agents", severity: "Moderate", reasonToAvoid: { clinical: "Depression and agitation.", patientFriendly: "Mood changes." } }],
+//                 primaryAlternatives: [{ drugName: "Inhaled Fluticasone/Salmeterol", drugClass: { clinical: "Combination Inhaler", patientFriendly: "Inhaled Controller" }, whyItIsTheBestAlternative: { clinical: "Superior pulmonary control.", patientFriendly: "Better airway protection." }, safetyConsiderations: { clinical: "Rinse mouth.", patientFriendly: "Rinse mouth after use." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Fluticasone/Salmeterol",
+//                 reasonForSwitch: { clinical: "Appropriate baseline therapy for COPD/asthma.", patientFriendly: "Combination breathing inhaler." },
+//                 medicationsToAvoid: [{ drugOrClass: "Non-Selective Beta-Blockers", severity: "High", reasonToAvoid: { clinical: "Bronchospasm risk.", patientFriendly: "Causes airway tightening." } }],
+//                 primaryAlternatives: [{ drugName: "Tiotropium Inhaler", drugClass: { clinical: "LAMA", patientFriendly: "Daily Inhaler" }, whyItIsTheBestAlternative: { clinical: "Once-daily bronchodilation.", patientFriendly: "Convenient daily control." }, safetyConsiderations: { clinical: "Check technique.", patientFriendly: "Verify inhaler technique." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Albuterol HFA",
+//                 reasonForSwitch: { clinical: "Standard rescue therapy.", patientFriendly: "Quick-relief rescue inhaler." },
+//                 medicationsToAvoid: [{ drugOrClass: "Non-Selective Beta-Blockers", severity: "High", reasonToAvoid: { clinical: "Inhibits bronchodilation.", patientFriendly: "Blocks inhaler effectiveness." } }],
+//                 primaryAlternatives: [{ drugName: "Levalbuterol HFA", drugClass: { clinical: "SABA", patientFriendly: "Rescue Inhaler" }, whyItIsTheBestAlternative: { clinical: "Less tachycardia.", patientFriendly: "Fewer heart palpitations." }, safetyConsiderations: { clinical: "Track usage.", patientFriendly: "Monitor rescue puffs." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Tiotropium Bromide",
+//                 reasonForSwitch: { clinical: "Anticholinergic burden evaluation in dementia.", patientFriendly: "Long-acting breathing inhaler." },
+//                 medicationsToAvoid: [{ drugOrClass: "Strong Anticholinergics", severity: "Moderate", reasonToAvoid: { clinical: "Worsens cognition.", patientFriendly: "Increases confusion." } }],
+//                 primaryAlternatives: [{ drugName: "Umeclidinium", drugClass: { clinical: "LAMA", patientFriendly: "Inhaled Bronchodilator" }, whyItIsTheBestAlternative: { clinical: "Once-daily dosing.", patientFriendly: "Simple once-daily schedule." }, safetyConsiderations: { clinical: "Avoid eyes.", patientFriendly: "Keep away from eyes." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Calcium Carbonate",
+//                 reasonForSwitch: { clinical: "Vascular calcification risk in CKD 3b.", patientFriendly: "Calcium supplement." },
+//                 medicationsToAvoid: [{ drugOrClass: "Calcium in CKD", severity: "Moderate", reasonToAvoid: { clinical: "Vascular calcification.", patientFriendly: "Hardens blood vessels." } }],
+//                 primaryAlternatives: [{ drugName: "Calcium Citrate", drugClass: { clinical: "Calcium Supplement", patientFriendly: "Acid-Independent Calcium" }, whyItIsTheBestAlternative: { clinical: "Better absorption.", patientFriendly: "Absorbs independently." }, safetyConsiderations: { clinical: "Monitor Ca/P.", patientFriendly: "Check calcium levels." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Cholecalciferol 2000 IU",
+//                 reasonForSwitch: { clinical: "Optimize vitamin D maintenance.", patientFriendly: "Vitamin D3 supplement." },
+//                 medicationsToAvoid: [],
+//                 primaryAlternatives: [{ drugName: "Ergocalciferol Weekly", drugClass: { clinical: "Vitamin D2", patientFriendly: "Weekly Vitamin D" }, whyItIsTheBestAlternative: { clinical: "Reduces pill burden.", patientFriendly: "Fewer weekly pills." }, safetyConsiderations: { clinical: "Check 25-OH levels.", patientFriendly: "Monitor vitamin D blood tests." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Alendronate 70mg weekly",
+//                 reasonForSwitch: { clinical: "GERD mucosal irritation risk.", patientFriendly: "Weekly osteoporosis pill." },
+//                 medicationsToAvoid: [{ drugOrClass: "Oral Bisphosphonates in GERD", severity: "Moderate", reasonToAvoid: { clinical: "Esophageal irritation.", patientFriendly: "Causes stomach upset." } }],
+//                 primaryAlternatives: [{ drugName: "Zoledronic Acid IV", drugClass: { clinical: "IV Bisphosphonate", patientFriendly: "Yearly Infusion" }, whyItIsTheBestAlternative: { clinical: "Bypasses GI tract.", patientFriendly: "Avoids stomach irritation." }, safetyConsiderations: { clinical: "Check eGFR.", patientFriendly: "Verify kidney function." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Potassium Chloride 20mEq",
+//                 reasonForSwitch: { clinical: "Hyperkalemia risk in CKD with ACEi/MRA.", patientFriendly: "Potassium salt supplement." },
+//                 medicationsToAvoid: [{ drugOrClass: "Potassium Supplements in CKD", severity: "High", reasonToAvoid: { clinical: "Hyperkalemia.", patientFriendly: "Dangerous potassium buildup." } }],
+//                 primaryAlternatives: [{ drugName: "Dietary Potassium Focus", drugClass: { clinical: "Dietary Modification", patientFriendly: "Food-Based Potassium" }, whyItIsTheBestAlternative: { clinical: "Safer regulation.", patientFriendly: "Natural dietary sources." }, safetyConsiderations: { clinical: "Monitor K+.", patientFriendly: "Check blood potassium." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Meloxicam 15mg",
+//                 reasonForSwitch: { clinical: "Nephrotoxic NSAID in CKD/HFpEF.", patientFriendly: "Anti-inflammatory pain pill." },
+//                 medicationsToAvoid: [{ drugOrClass: "NSAIDs in CKD", severity: "High", reasonToAvoid: { clinical: "Precipitates AKI.", patientFriendly: "Damages kidneys." } }],
+//                 primaryAlternatives: [{ drugName: "Acetaminophen", drugClass: { clinical: "Analgesic", patientFriendly: "Safe Pain Relief" }, whyItIsTheBestAlternative: { clinical: "Kidney-safe pain relief.", patientFriendly: "Relieves pain safely." }, safetyConsiderations: { clinical: "Max 3g/day.", patientFriendly: "Stay under daily limit." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Acetaminophen 500mg QID",
+//                 reasonForSwitch: { clinical: "Optimized baseline analgesic.", patientFriendly: "Safe pain relief pill." },
+//                 medicationsToAvoid: [],
+//                 primaryAlternatives: [{ drugName: "Topical Diclofenac", drugClass: { clinical: "Topical NSAID", patientFriendly: "Joint Pain Gel" }, whyItIsTheBestAlternative: { clinical: "Localized relief.", patientFriendly: "Targeted joint comfort." }, safetyConsiderations: { clinical: "Wash hands.", patientFriendly: "Wash hands after use." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Allopurinol 300mg",
+//                 reasonForSwitch: { clinical: "Renal dose titration for gout in CKD.", patientFriendly: "Gout prevention pill." },
+//                 medicationsToAvoid: [],
+//                 primaryAlternatives: [{ drugName: "Febuxostat", drugClass: { clinical: "Xanthine Oxidase Inhibitor", patientFriendly: "Gout Medication" }, whyItIsTheBestAlternative: { clinical: "Hepatic clearance.", patientFriendly: "Processed through liver." }, safetyConsiderations: { clinical: "Monitor LFTs.", patientFriendly: "Check liver tests." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Donepezil 10mg",
+//                 reasonForSwitch: { clinical: "Assess cognitive benefit vs side effects.", patientFriendly: "Memory support medication." },
+//                 medicationsToAvoid: [{ drugOrClass: "Strong Anticholinergics", severity: "High", reasonToAvoid: { clinical: "Pharmacodynamic antagonism.", patientFriendly: "Counters memory benefits." } }],
+//                 primaryAlternatives: [{ drugName: "Rivastigmine Patch", drugClass: { clinical: "Transdermal Inhibitor", patientFriendly: "Memory Patch" }, whyItIsTheBestAlternative: { clinical: "Smoother plasma levels.", patientFriendly: "Fewer stomach side effects." }, safetyConsiderations: { clinical: "Rotate sites.", patientFriendly: "Change patch location." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Memantine 10mg",
+//                 reasonForSwitch: { clinical: "Renal clearance requires monitoring in CKD.", patientFriendly: "Cognitive support pill." },
+//                 medicationsToAvoid: [],
+//                 primaryAlternatives: [{ drugName: "Memantine (Dose Adjusted)", drugClass: { clinical: "NMDA Antagonist", patientFriendly: "Adjusted Memory Pill" }, whyItIsTheBestAlternative: { clinical: "Prevents accumulation.", patientFriendly: "Tailored to kidney function." }, safetyConsiderations: { clinical: "Monitor eGFR.", patientFriendly: "Check kidney lab tests." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Ranolazine 500mg",
+//                 reasonForSwitch: { clinical: "QT prolongation and renal accumulation.", patientFriendly: "Angina medication." },
+//                 medicationsToAvoid: [{ drugOrClass: "CYP3A4 Inhibitors", severity: "High", reasonToAvoid: { clinical: "Arrhythmia risk.", patientFriendly: "Heart rhythm risks." } }],
+//                 primaryAlternatives: [{ drugName: "Ivabradine", drugClass: { clinical: "HR Blocker", patientFriendly: "Heart Rate Pill" }, whyItIsTheBestAlternative: { clinical: "No negative inotropic effect.", patientFriendly: "Reduces heart rate safely." }, safetyConsiderations: { clinical: "Monitor pulse.", patientFriendly: "Check resting heart rate." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Isosorbide Mononitrate 30mg",
+//                 reasonForSwitch: { clinical: "Orthostatic hypotension in HFpEF.", patientFriendly: "Nitrate heart pill." },
+//                 medicationsToAvoid: [{ drugOrClass: "PDE-5 Inhibitors", severity: "High", reasonToAvoid: { clinical: "Profound hypotension.", patientFriendly: "Dangerous blood pressure drop." } }],
+//                 primaryAlternatives: [{ drugName: "Sacubitril-Valsartan", drugClass: { clinical: "ARNI", patientFriendly: "Heart Failure Pill" }, whyItIsTheBestAlternative: { clinical: "Proven mortality benefit.", patientFriendly: "Improves heart function." }, safetyConsiderations: { clinical: "Monitor BP/K+.", patientFriendly: "Check blood pressure." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Hydralazine 50mg",
+//                 reasonForSwitch: { clinical: "Reflex tachycardia and edema in HFpEF.", patientFriendly: "Vasodilator blood pressure pill." },
+//                 medicationsToAvoid: [],
+//                 primaryAlternatives: [{ drugName: "Amlodipine", drugClass: { clinical: "CCB", patientFriendly: "Blood Pressure Pill" }, whyItIsTheBestAlternative: { clinical: "Smooth arterial vasodilation.", patientFriendly: "Consistent blood pressure control." }, safetyConsiderations: { clinical: "Watch for swelling.", patientFriendly: "Monitor ankle swelling." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Clonidine Patch 0.2mg",
+//                 reasonForSwitch: { clinical: "CNS fatigue and rebound hypertension risk.", patientFriendly: "Blood pressure patch." },
+//                 medicationsToAvoid: [{ drugOrClass: "CNS Depressants", severity: "High", reasonToAvoid: { clinical: "Additive sedation.", patientFriendly: "Deep drowsiness." } }],
+//                 primaryAlternatives: [{ drugName: "Lisinopril", drugClass: { clinical: "ACE Inhibitor", patientFriendly: "Blood Pressure Pill" }, whyItIsTheBestAlternative: { clinical: "No central sedation.", patientFriendly: "Blood pressure control without drowsiness." }, safetyConsiderations: { clinical: "Monitor renal function.", patientFriendly: "Check kidney tests." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Entresto 49/51mg",
+//                 reasonForSwitch: { clinical: "Monitor potassium and renal function in CKD.", patientFriendly: "Combination heart failure medication." },
+//                 medicationsToAvoid: [{ drugOrClass: "ACE Inhibitors", severity: "High", reasonToAvoid: { clinical: "Angioedema risk.", patientFriendly: "Severe swelling risk." } }],
+//                 primaryAlternatives: [{ drugName: "Valsartan", drugClass: { clinical: "ARB", patientFriendly: "Blood Pressure Pill" }, whyItIsTheBestAlternative: { clinical: "Foundational RAS blockade.", patientFriendly: "Standard organ protection." }, safetyConsiderations: { clinical: "Monitor blood pressure.", patientFriendly: "Check blood pressure." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Empagliflozin 10mg",
+//                 reasonForSwitch: { clinical: "Cardiorenal protection in CKD/HFpEF.", patientFriendly: "Cardiorenal sugar pill." },
+//                 medicationsToAvoid: [],
+//                 primaryAlternatives: [{ drugName: "Dapagliflozin", drugClass: { clinical: "SGLT2 Inhibitor", patientFriendly: "Cardiorenal Pill" }, whyItIsTheBestAlternative: { clinical: "Equivalent class option.", patientFriendly: "Same class protection." }, safetyConsiderations: { clinical: "Hydration status.", patientFriendly: "Stay well hydrated." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Linagliptin 5mg",
+//                 reasonForSwitch: { clinical: "Safe enterohepatic clearance in CKD.", patientFriendly: "Kidney-safe diabetes pill." },
+//                 medicationsToAvoid: [],
+//                 primaryAlternatives: [{ drugName: "Metformin (Adjusted)", drugClass: { clinical: "Biguanide", patientFriendly: "Diabetes Pill" }, whyItIsTheBestAlternative: { clinical: "First-line glycemic control.", patientFriendly: "Standard blood sugar pill." }, safetyConsiderations: { clinical: "Monitor eGFR.", patientFriendly: "Check kidney lab tests." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Spironolactone 25mg (Secondary)",
+//                 reasonForSwitch: { clinical: "MRA therapy requires potassium surveillance.", patientFriendly: "Mineralocorticoid receptor blocker." },
+//                 medicationsToAvoid: [{ drugOrClass: "Potassium Supplements", severity: "High", reasonToAvoid: { clinical: "Hyperkalemia.", patientFriendly: "Potassium buildup." } }],
+//                 primaryAlternatives: [{ drugName: "Eplerenone", drugClass: { clinical: "MRA", patientFriendly: "Heart Failure Pill" }, whyItIsTheBestAlternative: { clinical: "Lower endocrine side effects.", patientFriendly: "Fewer hormonal side effects." }, safetyConsiderations: { clinical: "Monitor K+.", patientFriendly: "Check blood potassium." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Risedronate 35mg",
+//                 reasonForSwitch: { clinical: "GERD and esophageal safety check.", patientFriendly: "Osteoporosis pill." },
+//                 medicationsToAvoid: [{ drugOrClass: "NSAIDs", severity: "High", reasonToAvoid: { clinical: "GI ulceration risk.", patientFriendly: "Stomach ulcer risk." } }],
+//                 primaryAlternatives: [{ drugName: "Denosumab SubQ", drugClass: { clinical: "RANK Inhibitor", patientFriendly: "6-Month Injection" }, whyItIsTheBestAlternative: { clinical: "Bypasses GI tract.", patientFriendly: "No stomach irritation." }, safetyConsiderations: { clinical: "Monitor calcium.", patientFriendly: "Check calcium levels." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Baclofen 10mg",
+//                 reasonForSwitch: { clinical: "Renal accumulation causes encephalopathy in CKD.", patientFriendly: "Muscle relaxant." },
+//                 medicationsToAvoid: [{ drugOrClass: "CNS Depressants", severity: "High", reasonToAvoid: { clinical: "Severe sedation.", patientFriendly: "Extreme drowsiness." } }],
+//                 primaryAlternatives: [{ drugName: "Topical Menthol", drugClass: { clinical: "Topical Analgesic", patientFriendly: "Pain Relief Gel" }, whyItIsTheBestAlternative: { clinical: "No systemic sedation.", patientFriendly: "Localized relief without drowsiness." }, safetyConsiderations: { clinical: "Avoid broken skin.", patientFriendly: "Apply to intact skin." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Cyclobenzaprine 10mg",
+//                 reasonForSwitch: { clinical: "Beers criteria high-risk anticholinergic.", patientFriendly: "Muscle relaxant with sedation." },
+//                 medicationsToAvoid: [{ drugOrClass: "Anticholinergics", severity: "High", reasonToAvoid: { clinical: "Delirium and falls.", patientFriendly: "Causes confusion and falls." } }],
+//                 primaryAlternatives: [{ drugName: "Acetaminophen", drugClass: { clinical: "Analgesic", patientFriendly: "Safe Pain Relief" }, whyItIsTheBestAlternative: { clinical: "Guideline first-line pain option.", patientFriendly: "Safer pain control." }, safetyConsiderations: { clinical: "Max 3g/day.", patientFriendly: "Stay under daily limit." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Pregabalin 75mg",
+//                 reasonForSwitch: { clinical: "Edema and CNS slowing in CKD.", patientFriendly: "Nerve pain medication." },
+//                 medicationsToAvoid: [{ drugOrClass: "CNS Depressants", severity: "High", reasonToAvoid: { clinical: "Respiratory depression.", patientFriendly: "Breathing difficulties." } }],
+//                 primaryAlternatives: [{ drugName: "Pregabalin (Low Dose)", drugClass: { clinical: "GABA Analogue", patientFriendly: "Adjusted Nerve Pill" }, whyItIsTheBestAlternative: { clinical: "Safe renal titration.", patientFriendly: "Adjusted for kidney function." }, safetyConsiderations: { clinical: "Monitor swelling.", patientFriendly: "Watch for fluid retention." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Topiramate 50mg",
+//                 reasonForSwitch: { clinical: "Metabolic acidosis and cognitive slowing in CKD.", patientFriendly: "Neurological medication." },
+//                 medicationsToAvoid: [{ drugOrClass: "Carbonic Anhydrase Inhibitors", severity: "High", reasonToAvoid: { clinical: "Acid-base imbalance.", patientFriendly: "Acid buildup in blood." } }],
+//                 primaryAlternatives: [{ drugName: "Gabapentin (Adjusted)", drugClass: { clinical: "Neuropathic Agent", patientFriendly: "Adjusted Nerve Pill" }, whyItIsTheBestAlternative: { clinical: "Fewer acid-base disturbances.", patientFriendly: "Simpler nerve support." }, safetyConsiderations: { clinical: "Monitor bicarbonate.", patientFriendly: "Check blood acid levels." } }],
+//                 secondaryAlternatives: []
+//             },
+//             {
+//                 targetDrug: "Hydroxyzine 25mg",
+//                 reasonForSwitch: { clinical: "Beers criteria high-risk anticholinergic sedative.", patientFriendly: "Antianxiety antihistamine." },
+//                 medicationsToAvoid: [{ drugOrClass: "Anticholinergics", severity: "High", reasonToAvoid: { clinical: "Cognitive impairment.", patientFriendly: "Worsens memory and confusion." } }],
+//                 primaryAlternatives: [{ drugName: "Melatonin (Low Dose)", drugClass: { clinical: "Supplement", patientFriendly: "Sleep Regulator" }, whyItIsTheBestAlternative: { clinical: "No anticholinergic burden.", patientFriendly: "Sleep support without confusion." }, safetyConsiderations: { clinical: "Sleep hygiene.", patientFriendly: "Maintain sleep routine." } }],
+//                 secondaryAlternatives: []
+//             }
+//         ]
+//     }
+// }
+
+
+
+
+
+
 ];
