@@ -834,7 +834,7 @@ export const SAMPLE_CASE_STUDY_OUTPUT: SampleCaseStudyOutput[] = [
             },
             regimenInteractionNotes: [
                 {
-                    alertDirective: "Please enter a medication, treatment, symptom, or health summary for analysis."
+                    alertDirective: "Please enter a medication, treatment, or health summary for analysis."
                 }
             ],
             medicationAnalyses: []
@@ -880,7 +880,7 @@ export const SAMPLE_CASE_STUDY_OUTPUT: SampleCaseStudyOutput[] = [
             },
             regimenInteractionNotes: [
                 {
-                    alertDirective: "Please enter a medication, treatment, symptom, or health summary for analysis."
+                    alertDirective: "Please enter a medication, treatment, or health summary for analysis."
                 }
             ],
             medicationAnalyses: []
@@ -903,7 +903,7 @@ export const SAMPLE_CASE_STUDY_OUTPUT: SampleCaseStudyOutput[] = [
             },
             regimenInteractionNotes: [
                 {
-                    alertDirective: "Please enter a medication, treatment, symptom, or health summary for analysis."
+                    alertDirective: "Please enter a medication, treatment, or health summary for analysis."
                 }
             ],
             medicationAnalyses: []
